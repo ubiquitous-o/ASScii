@@ -16,8 +16,6 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
 - `ascii_video_preview.py` – GUI entry point (Tkinter + OpenCV + Pillow). Launch this script to run the previewer/exporter.
 - `ascii_core.py` – reusable ASCII conversion helpers (`AsciiParams`, tone curve, image renderer, masking utility).
 - `ass_exporter.py` – standalone ASS writer invoked by the GUI; can be imported into other scripts for batch jobs.
-- `*.ass` – generated subtitle files (ignored by git; create your own locally via the exporter).
-- `venv/` – optional local virtual environment (ignored by git; create as needed).
 
 ## Requirements
 - Python 3.10 or newer with Tkinter available.
