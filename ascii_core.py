@@ -23,7 +23,7 @@ class AsciiParams:
     rows: int = 45
     fps: float = 12.0
     charset_name: str = "Blocks (5)"
-    invert: bool = False
+    invert: bool = True
     gamma: float = 1.0
     contrast: float = 1.0
     brightness: float = 0.0  # -100..100
