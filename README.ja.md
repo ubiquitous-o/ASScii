@@ -51,6 +51,7 @@ python ascii_video_preview.py input.mp4  # パスを直接指定
 - `Space` – 再生/一時停止（起動直後は一時停止状態）
 - `r` – 先頭フレームへ巻き戻し
 - `e` – ASSエクスポートダイアログ
+- `Export Text` ボタン – 現在表示中のASCIIフレームをプレーンテキストとして保存
 - スライダー/スピンボックス – 任意フレームへジャンプ（末尾到達でループ）
 - Lock aspect – 現在のフォント寸法と動画比率から行数を自動調整（初期状態でON）
 - Eraser（左ドラッグ）/Restore（右ドラッグ） – セル単位のマスク。`Clear Eraser (frame)`でリセット
@@ -60,6 +61,9 @@ python ascii_video_preview.py input.mp4  # パスを直接指定
 2. フル動画／現在フレーム／任意範囲から書き出し対象を選び、`pos_x/pos_y`・フォント情報・PlayResを入力します。各ASCIIフレームが`\an7\pos(...)`付きDialogueイベントになり、マスク結果も反映されます。
 3. 出力先`.ass`を指定して保存。
 4. 推奨フロー: Aegisubで確認 → [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter)で必要に応じて変換 → YouTube等へアップロード。
+
+### ASCIIテキストのエクスポート
+`Export Text` を押すと、現在プレビュー中のASCIIフレーム（マスク適用済み）をUTF-8テキストとして保存できます。静止画シェアやデバッグに便利です。
 
 ### スクリプトからの利用
 バッチ処理を行いたい場合は`ascii_core.py`/`ass_exporter.py`から`AsciiParams`や`frame_to_ascii`、`export_ass`をインポートして使用できます。GUIに依存しない純Python関数です。

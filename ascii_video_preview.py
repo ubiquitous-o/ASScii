@@ -195,12 +195,15 @@ class App:
 
         actions = ctk.CTkFrame(controls, fg_color="transparent")
         actions.pack(fill="x", padx=8, pady=(8, 4))
-        actions.grid_columnconfigure((0, 1), weight=1)
+        actions.grid_columnconfigure((0, 1, 2), weight=1)
         ctk.CTkButton(actions, text="Export ASS (e)", command=self.ask_export).grid(
             row=0, column=0, padx=4, pady=4, sticky="ew"
         )
-        ctk.CTkButton(actions, text="Clear Eraser", command=self._clear_erase_mask).grid(
+        ctk.CTkButton(actions, text="Export Text", command=self.ask_export_text).grid(
             row=0, column=1, padx=4, pady=4, sticky="ew"
+        )
+        ctk.CTkButton(actions, text="Clear Eraser", command=self._clear_erase_mask).grid(
+            row=0, column=2, padx=4, pady=4, sticky="ew"
         )
 
         opts = ctk.CTkFrame(controls)
@@ -961,6 +964,30 @@ class App:
 
         ctk.CTkButton(frm, text="Export", command=do_export).grid(row=9, column=0, pady=12)
         ctk.CTkButton(frm, text="Cancel", command=dlg.destroy).grid(row=9, column=1, pady=12, sticky="w")
+
+    def ask_export_text(self):
+        if self._last_frame_bgr is None:
+            messagebox.showinfo("Export", "Render a frame first.")
+            return
+        self._sync_params()
+        lines = self._ensure_ascii_lines(self.frame_index, self._last_frame_bgr)
+        if lines is None:
+            messagebox.showerror("Export", "Could not convert current frame to ASCII.")
+            return
+        lines = self._apply_erase_mask_to_lines(lines, self.frame_index)
+        out = filedialog.asksaveasfilename(
+            title="Save ASCII text",
+            defaultextension=".txt",
+            filetypes=[("Text", "*.txt"), ("All files", "*.*")]
+        )
+        if not out:
+            return
+        try:
+            with open(out, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            messagebox.showinfo("Export", f"Saved ASCII text:\n{out}")
+        except Exception as exc:
+            messagebox.showerror("Export error", str(exc))
 
     def _loop(self):
         # target tick

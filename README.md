@@ -51,6 +51,7 @@ python ascii_video_preview.py input.mp4  # skip the dialog
 - `Space` – play/pause.
 - `r` – rewind to frame 0.
 - `e` – open the ASS export dialog.
+- `Export Text` button – save the current ASCII frame as a plain `.txt` file.
 - Slider/spinbox – jump to an arbitrary frame (loops when the end is reached).
 - Lock aspect – ties row count to the current video aspect ratio using the active font metrics.
 - Eraser (left drag) / Restore (right drag) – toggle per-cell masks; `Clear Eraser (frame)` resets the current frame mask.
@@ -61,6 +62,9 @@ python ascii_video_preview.py input.mp4  # skip the dialog
 2. Pick an export range: **Full video**, **Current frame** (one-frame snapshot), or **Custom** (manual start/duration). Provide position `(pos_x, pos_y)`, font info, and PlayRes values. Each rendered ASCII frame becomes a Dialogue event anchored with `\an7\pos(...)`.
 3. Choose an output path to write the `.ass` file. Any erased cells are baked into the output.
 4. Recommended workflow: review in Aegisub → convert via [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter) if necessary → upload to YouTube (or similar).
+
+### Exporting ASCII text
+Press `Export Text` to dump the currently displayed ASCII frame (after masks) to a UTF-8 `.txt` file—handy for sharing static art or debugging.
 
 ### Programmatic use
 If you want to batch-process footage, import `AsciiParams`, `frame_to_ascii`, or `export_ass` from `ascii_core.py` / `ass_exporter.py` and call them from your own scripts. The helper functions are pure Python and stay independent from the GUI.
