@@ -4,6 +4,8 @@
 
 ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art and exports every rendered frame as Aegisub-compatible ASS subtitles. It is optimized for creators who want to author stylized overlays or subtitles that can later be synced and published on video platforms.
 
+![screenshot](imgs/screenshot.png)
+
 ## Highlights
 - Real-time dual preview so you can see the original frame and the ASCII rendition side by side.
 - Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, charset presets, and font metrics with optional aspect locking.
@@ -24,6 +26,7 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
   numpy
   opencv-python
   pillow
+  customtkinter
   ```
 - A video file encoded with a format supported by OpenCV (H.264 MP4 works best).
 
@@ -32,7 +35,7 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install numpy opencv-python pillow
+python -m pip install numpy opencv-python pillow customtkinter
 ```
 Optional: place your preferred monospace font (e.g., `lucida-console.ttf`, `DejaVuSansMono.ttf`) next to the scripts or install it system-wide. The app will auto-detect several popular fonts and mirror that selection in the export dialog.
 

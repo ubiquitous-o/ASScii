@@ -4,6 +4,8 @@
 
 ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリアルタイムにASCIIアートへ変換し、その結果をAegisub互換のASS字幕として書き出せます。スタイライズした字幕やオーバーレイを作りたいクリエイター向けに、プレビューと書き出しを同じ設定で一貫して扱えるよう設計されています。
 
+![スクリーンショット](imgs/screenshot.png)
+
 ## ハイライト
 - 元動画とASCIIレンダリングを並べて表示するデュアルプレビュー。
 - グリッド解像度、FPS、ガンマ、コントラスト、明るさ、反転、文字セット、フォント情報、アスペクトロックなど豊富なトーン・レイアウト調整。
@@ -24,6 +26,7 @@ ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリ�
   numpy
   opencv-python
   pillow
+  customtkinter
   ```
 - OpenCVで読み込める動画（H.264 MP4推奨）。
 
@@ -32,7 +35,7 @@ ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリ�
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install numpy opencv-python pillow
+python -m pip install numpy opencv-python pillow customtkinter
 ```
 任意: `lucida-console.ttf`や`DejaVuSansMono.ttf`などの等幅フォントをスクリプトと同じディレクトリに置くか、システムにインストールしてください。アプリが自動検出したフォント名はプレビューとエクスポート設定に反映されます。
 

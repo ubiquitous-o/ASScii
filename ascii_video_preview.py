@@ -10,7 +10,9 @@ import numpy as np
 import cv2
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
+
+import customtkinter as ctk
 
 from PIL import Image, ImageTk, ImageFont
 
@@ -27,10 +29,11 @@ from ass_exporter import export_ass
 # ---------- UI App ----------
 
 class App:
-    def __init__(self, root: tk.Tk, video_path: Path | None = None):
+    def __init__(self, root: ctk.CTk, video_path: Path | None = None):
         self.root = root
         self.root.title("ASCII Video Preview (real-time)")
-        self.root.geometry("1200x720")
+        self.root.geometry("1920x1080")
+        self.root.resizable(False, False)
 
         self.cap = None
         self.video_path: Path | None = None
@@ -109,18 +112,31 @@ class App:
         return ImageFont.load_default()
 
     def _build_ui(self):
-        # Layout: top row previews, bottom row controls
-        main = ttk.Frame(self.root, padding=8)
-        main.pack(fill="both", expand=True)
+        main = ctk.CTkFrame(self.root, corner_radius=12)
+        main.pack(fill="both", expand=True, padx=12, pady=12)
 
-        preview = ttk.Frame(main)
+        preview = ctk.CTkFrame(main, corner_radius=12)
         preview.pack(fill="both", expand=True)
+        preview.grid_columnconfigure(0, weight=1)
+        preview.grid_columnconfigure(1, weight=1)
+        preview.grid_rowconfigure(0, weight=1)
 
-        self.orig_label = ttk.Label(preview, text="Original")
-        self.orig_label.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        def build_preview_card(parent, title: str, column: int):
+            card = ctk.CTkFrame(parent)
+            card.grid(row=0, column=column, sticky="nsew", padx=(0 if column == 0 else 12, 0), pady=12)
+            card.grid_rowconfigure(1, weight=1)
+            card.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(card, text=title, anchor="w").grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 0))
+            container = ctk.CTkFrame(card, fg_color="transparent")
+            container.grid(row=1, column=0, sticky="nsew", padx=12, pady=12)
+            container.grid_rowconfigure(0, weight=1)
+            container.grid_columnconfigure(0, weight=1)
+            img_label = tk.Label(container, text="", bg="#111111", fg="#f5f5f5", bd=0, highlightthickness=0)
+            img_label.grid(row=0, column=0, sticky="nsew")
+            return img_label
 
-        self.ascii_label = ttk.Label(preview, text="ASCII")
-        self.ascii_label.grid(row=0, column=1, sticky="nsew")
+        self.orig_label = build_preview_card(preview, "Original", 0)
+        self.ascii_label = build_preview_card(preview, "ASCII", 1)
         self.ascii_label.bind("<Button-1>", self._on_ascii_erase)
         self.ascii_label.bind("<B1-Motion>", self._on_ascii_erase)
         self.ascii_label.bind("<Button-3>", self._on_ascii_restore)
@@ -130,143 +146,170 @@ class App:
         self.ascii_label.bind("<Control-Button-1>", self._on_ascii_restore)
         self.ascii_label.bind("<Control-B1-Motion>", self._on_ascii_restore)
 
-        preview.columnconfigure(0, weight=1)
-        preview.columnconfigure(1, weight=1)
-        preview.rowconfigure(0, weight=1)
+        transport = ctk.CTkFrame(main, corner_radius=12)
+        transport.pack(fill="x", pady=(8, 0))
 
-        controls = ttk.Frame(main)
+        self.frame_entry_var = tk.StringVar(value="0")
+
+        transport_buttons = ctk.CTkFrame(transport, fg_color="transparent")
+        transport_buttons.pack(fill="x", padx=8, pady=(8, 4))
+        transport_buttons.grid_columnconfigure((0, 1, 2), weight=1)
+
+        ctk.CTkButton(transport_buttons, text="Open (o)", command=self.ask_open).grid(
+            row=0, column=0, padx=4, pady=4, sticky="ew"
+        )
+        ctk.CTkButton(transport_buttons, text="Pause/Play (space)", command=self.toggle_pause).grid(
+            row=0, column=1, padx=4, pady=4, sticky="ew"
+        )
+        ctk.CTkButton(transport_buttons, text="Rewind (r)", command=self.rewind).grid(
+            row=0, column=2, padx=4, pady=4, sticky="ew"
+        )
+
+        frame_ctrl = ctk.CTkFrame(transport)
+        frame_ctrl.pack(fill="x", padx=8, pady=(0, 8))
+        frame_ctrl.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(frame_ctrl, text="Frame").grid(row=0, column=0, sticky="w", padx=(0, 10))
+        self.frame_slider = ctk.CTkSlider(frame_ctrl, from_=0, to=1, command=self._on_frame_slider)
+        self.frame_slider.grid(row=0, column=1, sticky="ew")
+
+        self.frame_entry = ctk.CTkEntry(frame_ctrl, textvariable=self.frame_entry_var, width=80, justify="center")
+        self.frame_entry.grid(row=0, column=2, padx=(12, 0))
+        self.frame_entry.bind("<Return>", self._on_frame_entry_commit)
+        self.frame_entry.bind("<FocusOut>", self._on_frame_entry_commit)
+
+        self.frame_label_var = tk.StringVar(value="Frame 0 / 0")
+        ctk.CTkLabel(frame_ctrl, textvariable=self.frame_label_var).grid(
+            row=1, column=0, columnspan=3, sticky="w", pady=(6, 0)
+        )
+
+        self.info_var = tk.StringVar(
+            value="Open a video to start. (hotkeys: o open, space pause, r rewind, e export)"
+        )
+        ctk.CTkLabel(transport, textvariable=self.info_var, anchor="w").pack(
+            fill="x", padx=8, pady=(0, 8)
+        )
+
+        controls = ctk.CTkFrame(main, corner_radius=12)
         controls.pack(fill="x", pady=(8, 0))
 
-        # Buttons
-        btns = ttk.Frame(controls)
-        btns.grid(row=0, column=0, sticky="w")
+        actions = ctk.CTkFrame(controls, fg_color="transparent")
+        actions.pack(fill="x", padx=8, pady=(8, 4))
+        actions.grid_columnconfigure((0, 1), weight=1)
+        ctk.CTkButton(actions, text="Export ASS (e)", command=self.ask_export).grid(
+            row=0, column=0, padx=4, pady=4, sticky="ew"
+        )
+        ctk.CTkButton(actions, text="Clear Eraser", command=self._clear_erase_mask).grid(
+            row=0, column=1, padx=4, pady=4, sticky="ew"
+        )
 
-        ttk.Button(btns, text="Open (o)", command=self.ask_open).grid(row=0, column=0, padx=4)
-        ttk.Button(btns, text="Pause/Play (space)", command=self.toggle_pause).grid(row=0, column=1, padx=4)
-        ttk.Button(btns, text="Rewind (r)", command=self.rewind).grid(row=0, column=2, padx=4)
-        ttk.Button(btns, text="Export ASS (e)", command=self.ask_export).grid(row=0, column=3, padx=4)
-        ttk.Button(btns, text="Clear Eraser (frame)", command=self._clear_erase_mask).grid(row=0, column=4, padx=4)
-
-        # Sliders / options
-        opts = ttk.Frame(controls)
-        opts.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        controls.columnconfigure(0, weight=1)
+        opts = ctk.CTkFrame(controls)
+        opts.pack(fill="x", padx=8, pady=(4, 0))
+        for c in range(9):
+            opts.grid_columnconfigure(c, weight=1)
 
         self.cols_var = tk.IntVar(value=self.params.cols)
         self.rows_var = tk.IntVar(value=self.params.rows)
-        self.fps_var = tk.DoubleVar(value=self.params.fps)
+        self.fps_var = tk.IntVar(value=int(round(self.params.fps)))
         self.gamma_var = tk.DoubleVar(value=self.params.gamma)
         self.contrast_var = tk.DoubleVar(value=self.params.contrast)
         self.brightness_var = tk.DoubleVar(value=self.params.brightness)
         self.invert_var = tk.BooleanVar(value=self.params.invert)
         self.charset_var = tk.StringVar(value=self.params.charset_name)
-        self.fontsize_var = tk.IntVar(value=self.fontsize)
+        self.fontsize_var = tk.StringVar(value=str(self.fontsize))
         self.lock_aspect_var = tk.BooleanVar(value=True)
         self.frame_var = tk.IntVar(value=0)
-        self.frame_label_var = tk.StringVar(value="Frame 0 / 0")
-
-        def add_scale(row, col, label, var, frm, to, step=None, display_var=None):
-            base_col = col * 3
-            lab = ttk.Label(opts, text=label)
-            lab.grid(row=row, column=base_col, sticky="w", padx=(0, 6))
-            sc = ttk.Scale(opts, variable=var, from_=frm, to=to, orient="horizontal")
-            sc.grid(row=row, column=base_col + 1, sticky="ew", padx=(0, 14))
-            # numeric readout
-            val_var = display_var if display_var is not None else var
-            val = ttk.Label(opts, textvariable=val_var, width=7)
-            val.grid(row=row, column=base_col + 2, sticky="w", padx=(0, 14))
-            if step is not None and step > 0:
-                def on_move(value, var=var, step=step):
-                    try:
-                        val = float(value)
-                    except (TypeError, ValueError):
-                        return
-                    snapped = round(val / step) * step
-                    if isinstance(var, tk.IntVar):
-                        snapped = int(snapped)
-                    current = var.get()
-                    try:
-                        same = abs(float(current) - float(snapped)) < 1e-6
-                    except (TypeError, ValueError):
-                        same = current == snapped
-                    if not same:
-                        var.set(snapped)
-                sc.configure(command=on_move)
-            return sc
-
-        # Use grid with enough columns
-        for c in range(9):
-            opts.columnconfigure(c, weight=1)
 
         self.cols_display = tk.StringVar(value=str(self.params.cols))
         self.rows_display = tk.StringVar(value=str(self.params.rows))
 
-        add_scale(0, 0, "Cols", self.cols_var, 20, 200, step=1.0, display_var=self.cols_display)
-        self.rows_scale = add_scale(0, 1, "Rows", self.rows_var, 10, 120, step=1.0, display_var=self.rows_display)
-        add_scale(0, 2, "FPS", self.fps_var, 2, 30)
-
-        add_scale(1, 0, "Gamma", self.gamma_var, 0.3, 3.0)
-        add_scale(1, 1, "Contrast", self.contrast_var, 0.3, 3.0)
-        add_scale(1, 2, "Brightness", self.brightness_var, -100, 100)
-
-        # Charset dropdown + invert + font size
-        extra = ttk.Frame(controls)
-        extra.grid(row=2, column=0, sticky="ew", pady=(6, 0))
-        controls.rowconfigure(2, weight=0)
-
-        ttk.Label(extra, text="Charset").pack(side="left", padx=(0, 6))
-        ttk.OptionMenu(extra, self.charset_var, self.charset_var.get(), *CHARSETS.keys()).pack(side="left")
-
-        ttk.Checkbutton(extra, text="Invert", variable=self.invert_var).pack(side="left", padx=10)
-
-        ttk.Label(extra, text="Font size").pack(side="left", padx=(10, 6))
-        ttk.Spinbox(extra, from_=10, to=48, textvariable=self.fontsize_var, width=5,
-                    command=self._on_fontsize).pack(side="left")
-
-        ttk.Checkbutton(extra, text="Lock aspect", variable=self.lock_aspect_var).pack(side="left", padx=(12, 0))
-
-        self.info_var = tk.StringVar(value="Open a video to start. (hotkeys: o open, space pause, r rewind, e export)")
-        ttk.Label(controls, textvariable=self.info_var).grid(row=3, column=0, sticky="w", pady=(6, 0))
-
-        frame_ctrl = ttk.Frame(controls)
-        frame_ctrl.grid(row=4, column=0, sticky="ew", pady=(10, 0))
-        frame_ctrl.columnconfigure(1, weight=1)
-
-        ttk.Label(frame_ctrl, text="Frame").grid(row=0, column=0, sticky="w", padx=(0, 6))
-        self.frame_slider = ttk.Scale(frame_ctrl, variable=self.frame_var, from_=0, to=0, orient="horizontal")
-        self.frame_slider.grid(row=0, column=1, sticky="ew")
-        self.frame_spin = ttk.Spinbox(frame_ctrl, from_=0, to=0, textvariable=self.frame_var, width=8)
-        self.frame_spin.grid(row=0, column=2, padx=(8, 0))
-
-        ttk.Label(frame_ctrl, textvariable=self.frame_label_var).grid(row=1, column=0, columnspan=3,
-                                                                    sticky="w", pady=(4, 0))
-
-        # Update params on change
-        for var in [self.cols_var, self.rows_var, self.fps_var, self.gamma_var,
-                    self.contrast_var, self.brightness_var, self.invert_var, self.charset_var]:
-            var.trace_add("write", lambda *args: self._sync_params())
-
-        def _bind_int_display(var: tk.Variable, disp: tk.StringVar):
+        def bind_int_display(source: tk.Variable, target: tk.StringVar):
             def sync(*_):
                 try:
-                    val = var.get()
+                    target.set(str(int(source.get())))
                 except Exception:
-                    disp.set("?")
-                    return
-                try:
-                    disp.set(str(int(round(float(val)))))
-                except (ValueError, TypeError):
-                    disp.set(str(val))
-            var.trace_add("write", sync)
+                    try:
+                        target.set(str(source.get()))
+                    except Exception:
+                        target.set("?")
+            source.trace_add("write", sync)
             sync()
 
-        _bind_int_display(self.cols_var, self.cols_display)
-        _bind_int_display(self.rows_var, self.rows_display)
+        def add_slider(row, col, label, var, frm, to, step=None, display_var=None):
+            base_col = col * 3
+            ctk.CTkLabel(opts, text=label).grid(row=row, column=base_col, sticky="w", padx=(0, 6), pady=6)
+            slider = ctk.CTkSlider(opts, from_=frm, to=to)
+            slider.grid(row=row, column=base_col + 1, sticky="ew", padx=(0, 10))
+            val_var = display_var if display_var is not None else var
+            ctk.CTkLabel(opts, textvariable=val_var, width=60, anchor="w").grid(row=row, column=base_col + 2, sticky="w")
+
+            def on_move(value, var=var, step=step):
+                snapped = float(value)
+                if step:
+                    snapped = round(snapped / step) * step
+                if isinstance(var, tk.IntVar):
+                    var.set(int(round(snapped)))
+                else:
+                    var.set(snapped)
+
+            slider.configure(command=on_move)
+
+            def sync_from_var(*_):
+                try:
+                    slider.set(float(var.get()))
+                except Exception:
+                    pass
+
+            var.trace_add("write", sync_from_var)
+            sync_from_var()
+            return slider
+
+        add_slider(0, 0, "Cols", self.cols_var, 20, 200, step=1.0, display_var=self.cols_display)
+        self.rows_slider = add_slider(0, 1, "Rows", self.rows_var, 10, 120, step=1.0, display_var=self.rows_display)
+        add_slider(0, 2, "FPS", self.fps_var, 2, 30)
+
+        add_slider(1, 0, "Gamma", self.gamma_var, 0.3, 3.0)
+        add_slider(1, 1, "Contrast", self.contrast_var, 0.3, 3.0)
+        add_slider(1, 2, "Brightness", self.brightness_var, -100, 100)
+
+        extra = ctk.CTkFrame(controls)
+        extra.pack(fill="x", padx=8, pady=(8, 0))
+
+        ctk.CTkLabel(extra, text="Charset").pack(side="left", padx=(0, 6))
+        charset_menu = ctk.CTkOptionMenu(extra, variable=self.charset_var, values=list(CHARSETS.keys()))
+        charset_menu.pack(side="left")
+
+        ctk.CTkSwitch(extra, text="Invert", variable=self.invert_var).pack(side="left", padx=10)
+
+        ctk.CTkLabel(extra, text="Font size").pack(side="left", padx=(10, 6))
+        font_entry = ctk.CTkEntry(extra, textvariable=self.fontsize_var, width=60, justify="center")
+        font_entry.pack(side="left")
+        font_entry.bind("<Return>", lambda *_: self._on_fontsize())
+        font_entry.bind("<FocusOut>", lambda *_: self._on_fontsize())
+
+        ctk.CTkSwitch(extra, text="Lock aspect", variable=self.lock_aspect_var).pack(side="left", padx=(12, 0))
+
+        # transport frame already includes playback info and frame controls
+
+        for var in [
+            self.cols_var,
+            self.rows_var,
+            self.fps_var,
+            self.gamma_var,
+            self.contrast_var,
+            self.brightness_var,
+            self.invert_var,
+            self.charset_var,
+        ]:
+            var.trace_add("write", lambda *args: self._sync_params())
 
         self.cols_var.trace_add("write", lambda *args: self._maybe_lock_aspect())
+        bind_int_display(self.cols_var, self.cols_display)
+        bind_int_display(self.rows_var, self.rows_display)
         self.fontsize_var.trace_add("write", lambda *args: self._on_fontsize_var())
         self.lock_aspect_var.trace_add("write", lambda *args: self._on_aspect_lock_toggle())
         self.frame_var.trace_add("write", self._on_frame_var_changed)
+        self.frame_var.trace_add("write", lambda *args: self.frame_entry_var.set(str(max(0, int(self.frame_var.get())))))
 
         self._on_aspect_lock_toggle()
         self._update_frame_controls()
@@ -332,16 +375,36 @@ class App:
     def _update_frame_controls(self):
         max_idx = max(0, self.video_frames - 1)
         if hasattr(self, "frame_slider"):
-            self.frame_slider.configure(to=max_idx)
-        if hasattr(self, "frame_spin"):
-            self.frame_spin.configure(to=max_idx)
+            to_value = max(1, max_idx)
+            self.frame_slider.configure(to=to_value)
         if hasattr(self, "frame_var"):
             self._suppress_frame_var = True
             try:
                 self.frame_var.set(max(0, min(self.frame_index, max_idx)))
             finally:
                 self._suppress_frame_var = False
+        if hasattr(self, "frame_slider"):
+            self.frame_slider.set(max(0, min(self.frame_index, max_idx)))
+        if hasattr(self, "frame_entry_var"):
+            self.frame_entry_var.set(str(max(0, min(self.frame_index, max_idx))))
         self._update_frame_label()
+
+    def _on_frame_slider(self, value):
+        if self._suppress_frame_var:
+            return
+        self.frame_var.set(int(round(float(value))))
+
+    def _on_frame_entry_commit(self, *_):
+        try:
+            idx = int(self.frame_entry_var.get())
+        except ValueError:
+            self.frame_entry_var.set(str(max(0, self.frame_index)))
+            return
+        if self.video_frames > 0:
+            idx = max(0, min(idx, self.video_frames - 1))
+        else:
+            idx = max(0, idx)
+        self.frame_var.set(idx)
 
     def _on_frame_var_changed(self, *args):
         if self._suppress_frame_var or self.cap is None or self.video_frames <= 0:
@@ -461,8 +524,7 @@ class App:
     def _refresh_ascii_preview(self):
         if self._last_frame_bgr is None:
             return
-        max_w = max(320, self.root.winfo_width() // 2 - 32)
-        max_h = max(240, self.root.winfo_height() - 220)
+        max_w, max_h = self._get_preview_target_size(self.ascii_label)
         idx = self._last_frame_index if self._last_frame_index is not None else self.frame_index
         self._render_ascii_frame(self._last_frame_bgr, idx, max_w, max_h)
 
@@ -563,6 +625,18 @@ class App:
 
         self._ascii_tk = ImageTk.PhotoImage(ascii_img)
         self.ascii_label.configure(image=self._ascii_tk)
+
+    def _get_preview_target_size(self, label, min_w: int = 320, min_h: int = 240) -> tuple[int, int]:
+        try:
+            w = max(1, int(label.winfo_width()))
+            h = max(1, int(label.winfo_height()))
+            if w > 1 and h > 1:
+                return max(min_w, w - 16), max(min_h, h - 16)
+        except Exception:
+            pass
+        fallback_w = max(min_w, self.root.winfo_width() // 2 - 32)
+        fallback_h = max(min_h, self.root.winfo_height() - 220)
+        return fallback_w, fallback_h
 
     def _apply_erase_mask_to_lines(self, lines: list[str], frame_idx: int | None) -> list[str]:
         mask = self._get_mask_for_frame(frame_idx, create=False)
@@ -667,9 +741,9 @@ class App:
             self._apply_aspect_lock()
 
     def _on_aspect_lock_toggle(self):
-        if hasattr(self, "rows_scale"):
+        if hasattr(self, "rows_slider"):
             state = "disabled" if self.lock_aspect_var.get() else "normal"
-            self.rows_scale.configure(state=state)
+            self.rows_slider.configure(state=state)
         if self.lock_aspect_var.get():
             self._apply_aspect_lock()
 
@@ -746,16 +820,15 @@ class App:
         self._last_frame_bgr = frame_bgr.copy()
         self._last_frame_index = self.frame_index
 
-        # Fit original to half window width
-        max_w = max(320, self.root.winfo_width() // 2 - 32)
-        max_h = max(240, self.root.winfo_height() - 220)
+        max_w, max_h = self._get_preview_target_size(self.orig_label)
         orig.thumbnail((max_w, max_h), Image.BICUBIC)
 
         self._orig_tk = ImageTk.PhotoImage(orig)
         self.orig_label.configure(image=self._orig_tk)
 
         # ASCII preview
-        self._render_ascii_frame(frame_bgr, self.frame_index, max_w, max_h)
+        ascii_w, ascii_h = self._get_preview_target_size(self.ascii_label)
+        self._render_ascii_frame(frame_bgr, self.frame_index, ascii_w, ascii_h)
         self._schedule_prefetch(self.frame_index)
 
     def ask_export(self):
@@ -763,9 +836,9 @@ class App:
             messagebox.showinfo("Export", "Open a video first.")
             return
 
-        dlg = tk.Toplevel(self.root)
+        dlg = ctk.CTkToplevel(self.root)
         dlg.title("Export ASS (frame-by-frame)")
-        dlg.geometry("520x320")
+        dlg.geometry("560x420")
 
         start_var = tk.DoubleVar(value=0.0)
         dur_var = tk.DoubleVar(value=5.0)
@@ -777,15 +850,15 @@ class App:
         fontname_var = tk.StringVar(value=getattr(self, "_font_display_name", "Lucida Console"))
         mode_var = tk.StringVar(value="range")
 
-        frm = ttk.Frame(dlg, padding=12)
-        frm.pack(fill="both", expand=True)
+        frm = ctk.CTkFrame(dlg, corner_radius=12)
+        frm.pack(fill="both", expand=True, padx=12, pady=12)
 
         def row(label, var, r, hint=""):
-            ttk.Label(frm, text=label).grid(row=r, column=0, sticky="w", pady=4)
-            ent = ttk.Entry(frm, textvariable=var)
+            ctk.CTkLabel(frm, text=label).grid(row=r, column=0, sticky="w", pady=4)
+            ent = ctk.CTkEntry(frm, textvariable=var)
             ent.grid(row=r, column=1, sticky="ew", pady=4)
             if hint:
-                ttk.Label(frm, text=hint, foreground="#666").grid(row=r, column=2, sticky="w", padx=8)
+                ctk.CTkLabel(frm, text=hint).grid(row=r, column=2, sticky="w", padx=8)
             return ent
 
         frm.columnconfigure(1, weight=1)
@@ -799,8 +872,8 @@ class App:
         row("PlayResX", playx_var, 6, "")
         row("PlayResY", playy_var, 7, "")
 
-        ttk.Label(frm, text="Export range").grid(row=8, column=0, sticky="w", pady=(12, 0))
-        range_opts = ttk.Frame(frm)
+        ctk.CTkLabel(frm, text="Export range").grid(row=8, column=0, sticky="w", pady=(12, 0))
+        range_opts = ctk.CTkFrame(frm)
         range_opts.grid(row=8, column=1, columnspan=2, sticky="w", pady=(12, 0))
 
         def update_range_state(*_):
@@ -808,12 +881,12 @@ class App:
             for widget in (start_entry, dur_entry):
                 widget.configure(state=state)
 
-        ttk.Radiobutton(range_opts, text="Full video", value="full",
-                        variable=mode_var, command=update_range_state).pack(side="left", padx=(0, 8))
-        ttk.Radiobutton(range_opts, text="Current frame", value="current",
-                        variable=mode_var, command=update_range_state).pack(side="left", padx=(0, 8))
-        ttk.Radiobutton(range_opts, text="Custom", value="range",
-                        variable=mode_var, command=update_range_state).pack(side="left")
+        ctk.CTkRadioButton(range_opts, text="Full video", value="full",
+                           variable=mode_var, command=update_range_state).pack(side="left", padx=(0, 8))
+        ctk.CTkRadioButton(range_opts, text="Current frame", value="current",
+                           variable=mode_var, command=update_range_state).pack(side="left", padx=(0, 8))
+        ctk.CTkRadioButton(range_opts, text="Custom", value="range",
+                           variable=mode_var, command=update_range_state).pack(side="left")
 
         update_range_state()
 
@@ -875,8 +948,8 @@ class App:
             except Exception as e:
                 messagebox.showerror("Export error", str(e))
 
-        ttk.Button(frm, text="Export", command=do_export).grid(row=9, column=0, pady=12)
-        ttk.Button(frm, text="Cancel", command=dlg.destroy).grid(row=9, column=1, pady=12, sticky="w")
+        ctk.CTkButton(frm, text="Export", command=do_export).grid(row=9, column=0, pady=12)
+        ctk.CTkButton(frm, text="Cancel", command=dlg.destroy).grid(row=9, column=1, pady=12, sticky="w")
 
     def _loop(self):
         # target tick
@@ -902,7 +975,9 @@ def main():
             print(f"File not found: {video_path}")
             sys.exit(1)
 
-    root = tk.Tk()
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+    root = ctk.CTk()
     app = App(root, video_path=video_path)
     root.mainloop()
 
