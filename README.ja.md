@@ -15,7 +15,7 @@ ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリ�
 - `ascii_core.py`（変換ユーティリティ）と`ass_exporter.py`（字幕ライター）に分割されたモジュール構成で、GUIを使わずスクリプトからも呼び出しやすい。
 
 ## リポジトリ構成
-- `ascii_video_preview.py` – GUIエントリポイント。Tkinter + OpenCV + Pillowでプレビュー＆書き出しを提供。
+- `asscii_app.py` – GUIエントリポイント。Tkinter + OpenCV + Pillowでプレビュー＆書き出しを提供。
 - `ascii_core.py` – `AsciiParams`やトーン補正、ASCII描画、マスク処理などの共通ロジック。
 - `ass_exporter.py` – GUIからも呼ばれるASS書き出しモジュール。バッチ処理時にも利用可能。
 
@@ -42,8 +42,8 @@ python -m pip install numpy opencv-python pillow customtkinter
 ## 使い方
 ### 起動
 ```bash
-python ascii_video_preview.py            # ファイルダイアログから選択
-python ascii_video_preview.py input.mp4  # パスを直接指定
+python asscii_app.py            # ファイルダイアログから選択
+python asscii_app.py input.mp4  # パスを直接指定
 ```
 
 ### ホットキー・コントロール
