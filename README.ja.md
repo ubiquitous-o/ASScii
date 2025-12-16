@@ -5,6 +5,7 @@
 ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリアルタイムにASCIIアートへ変換し、その結果をAegisub互換のASS字幕として書き出せます。スタイライズした字幕やオーバーレイを作りたいクリエイター向けに、プレビューと書き出しを同じ設定で一貫して扱えるよう設計されています。
 
 ![スクリーンショット](imgs/screenshot.png)
+[Sample Video is here.](https://youtu.be/F6egk1YDVNs?si=4CGu6RdAGxIfq4wy)
 
 ## ハイライト
 - 元動画とASCIIレンダリングを並べて表示するデュアルプレビュー。

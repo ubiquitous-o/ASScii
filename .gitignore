@@ -1,6 +1,8 @@
 .DS_Store
 big_buck_bunny_1080p_h264.mov
+*.mp4
 *.ass
+*.ytt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
