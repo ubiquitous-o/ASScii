@@ -10,7 +10,7 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
 - Real-time dual preview so you can see the original frame and the ASCII rendition side by side.
 - Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, charset presets, and font metrics with optional aspect locking.
 - Per-frame erase/restore masks to hide areas directly on the ASCII canvas *and* carry those edits into the exported ASS.
-- Frame-accurate ASS exporter with selectable ranges (full video / current frame / custom window) that writes one Dialogue event per rendered frame with configurable position, PlayRes, and style.
+- Frame-accurate ASS exporter with selectable ranges (full video / current frame / custom window) that writes one Dialogue event per rendered frame with configurable position, PlayRes, and style, automatically scaling the ASCII block to fit the video resolution.
 - Smart monospace font detection (prefers `lucida-console.ttf`, falls back to Courier New, Menlo, DejaVu Sans Mono, etc.) so both the preview and exported subtitles share the same metrics.
 - Modular code split across `ascii_core.py` (conversion utilities) and `ass_exporter.py` (subtitle writer) so you can script custom pipelines if needed.
 

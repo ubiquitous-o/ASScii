@@ -31,7 +31,7 @@ from ass_exporter import export_ass
 class App:
     def __init__(self, root: ctk.CTk, video_path: Path | None = None):
         self.root = root
-        self.root.title("ASCII Video Preview (real-time)")
+        self.root.title("ASScii")
         self.root.geometry("1920x1080")
         self.root.resizable(False, False)
 
@@ -266,7 +266,7 @@ class App:
 
         add_slider(0, 0, "Cols", self.cols_var, 20, 200, step=1.0, display_var=self.cols_display)
         self.rows_slider = add_slider(0, 1, "Rows", self.rows_var, 10, 120, step=1.0, display_var=self.rows_display)
-        add_slider(0, 2, "FPS", self.fps_var, 2, 30)
+        add_slider(0, 2, "FPS", self.fps_var, 2, 30, step=1.0)
 
         add_slider(1, 0, "Gamma", self.gamma_var, 0.3, 3.0)
         add_slider(1, 1, "Contrast", self.contrast_var, 0.3, 3.0)
@@ -459,6 +459,13 @@ class App:
             except Exception:
                 pass
         return cell_w, cell_h
+
+    def _get_ascii_grid_pixel_size(self) -> tuple[int, int]:
+        cached = getattr(self, "_ascii_render_grid_size", None)
+        if cached and cached[0] > 0 and cached[1] > 0:
+            return cached
+        cell_w, cell_h = self._get_font_cell_size()
+        return max(1, cell_w * max(1, self.params.cols)), max(1, cell_h * max(1, self.params.rows))
 
     def _clone_params(self) -> AsciiParams:
         return AsciiParams(**vars(self.params))
@@ -842,11 +849,11 @@ class App:
 
         start_var = tk.DoubleVar(value=0.0)
         dur_var = tk.DoubleVar(value=5.0)
-        x_var = tk.IntVar(value=40)
-        y_var = tk.IntVar(value=40)
+        x_var = tk.IntVar(value=0)
+        y_var = tk.IntVar(value=0)
         fontsize_var = tk.IntVar(value=self.fontsize)
-        playx_var = tk.IntVar(value=1920)
-        playy_var = tk.IntVar(value=1080)
+        playx_var = tk.IntVar(value=int(self.video_w) if self.video_w else 1920)
+        playy_var = tk.IntVar(value=int(self.video_h) if self.video_h else 1080)
         fontname_var = tk.StringVar(value=getattr(self, "_font_display_name", "Lucida Console"))
         mode_var = tk.StringVar(value="range")
 
@@ -929,6 +936,8 @@ class App:
                         return None
                     return mask
 
+                grid_pixel_w, grid_pixel_h = self._get_ascii_grid_pixel_size()
+
                 export_ass(
                     video_path=self.video_path,
                     out_path=Path(out),
@@ -941,6 +950,8 @@ class App:
                     fontsize=int(fontsize_var.get()),
                     play_res_x=int(playx_var.get()),
                     play_res_y=int(playy_var.get()),
+                    grid_pixel_w=grid_pixel_w,
+                    grid_pixel_h=grid_pixel_h,
                     mask_lookup=mask_lookup,
                 )
                 messagebox.showinfo("Export", f"Saved:\n{out}\n\nTip: run through Aegisub → YTSubConverter → YouTube.")

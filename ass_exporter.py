@@ -46,31 +46,26 @@ def sec_to_ass_time(t: float) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
+WORD_JOINER = "\u2060"
+
+
 def escape_ass_text(s: str) -> str:
     result: list[str] = []
-    trigger_next = {"N", "n", "h", "H"}
-    length = len(s)
 
-    idx = 0
-    while idx < length and s[idx] == " ":
-        result.append("\\h")
-        idx += 1
-
-    while idx < length:
-        ch = s[idx]
+    for ch in s:
+        if ch == "\n":
+            result.append(f"\\\\{WORD_JOINER}n")
+            continue
+        if ch == " ":
+            result.append("\\h")
+            continue
         if ch == "\\":
-            next_char = s[idx + 1] if idx + 1 < length else ""
-            if next_char in trigger_next:
-                result.append("\\\\")
-            elif next_char == "":
-                result.append("\\")
-            else:
-                result.append(ch)
-        elif ch in {"{", "}"}:
+            result.append(f"\\\\{WORD_JOINER}")
+            continue
+        if ch in {"{", "}"}:
             result.append("\\" + ch)
         else:
             result.append(ch)
-        idx += 1
     return "".join(result)
 
 
@@ -90,6 +85,8 @@ def export_ass(
     fontsize: int,
     play_res_x: int,
     play_res_y: int,
+    grid_pixel_w: int,
+    grid_pixel_h: int,
     mask_lookup: Callable[[int], np.ndarray | None] | None = None,
 ) -> None:
     cap = cv2.VideoCapture(str(video_path))
@@ -139,9 +136,15 @@ def export_ass(
                     lines = apply_mask_to_ascii_lines(lines, mask)
             txt = lines_to_ass_text(lines)
 
+            grid_w = max(1, grid_pixel_w)
+            grid_h = max(1, grid_pixel_h)
+            scale_x = (play_res_x / grid_w) * 100.0 if grid_w > 0 else 100.0
+            scale_y = (play_res_y / grid_h) * 100.0 if grid_h > 0 else 100.0
+            scale_tag = f"\\fscx{scale_x:.2f}\\fscy{scale_y:.2f}"
+
             ass_line = (
                 f"Dialogue: 0,{sec_to_ass_time(t0)},{sec_to_ass_time(t1)},"
-                f"Default,,0,0,0,,{{\\an7\\pos({pos_x},{pos_y})}}{txt}\n"
+                f"Default,,0,0,0,,{{\\an7{scale_tag}\\pos({pos_x},{pos_y})}}{txt}\n"
             )
             f.write(ass_line)
             i += 1
