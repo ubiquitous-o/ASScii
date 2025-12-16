@@ -2,84 +2,75 @@
 
 [English](README.md)
 
-ASSciiは、動画をリアルタイムでASCIIアートに変換しつつ、Aegisub互換のASS字幕として書き出せるデスクトップツールです。TkinterベースのGUIで元動画とASCII化したプレビューを並べて確認でき、微調整した結果をそのまま字幕ファイル化してYouTubeなどにアップロードするワークフローを支援します。
+ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリアルタイムにASCIIアートへ変換し、その結果をAegisub互換のASS字幕として書き出せます。スタイライズした字幕やオーバーレイを作りたいクリエイター向けに、プレビューと書き出しを同じ設定で一貫して扱えるよう設計されています。
 
-## 主な機能
-- 2ペインプレビュー: 左に元動画、右にASCII化した結果を同時表示。
-- 豊富な調整パラメータ: 列・行数、FPS、γ補正、コントラスト、明るさ、反転、文字セット(Blocks/Classic/Dense)などをリアルタイム変更。
-- ASCIIマスク描画: ASCIIキャンバス上を左ドラッグでマスク(消去)、右ドラッグで復帰。意図しない領域を隠した状態でエクスポートできます。
-- フレームコントロール: スライダー／スピンボックスで任意フレームへジャンプ、Pause/Play、Rewindのホットキーにも対応。
-- ASS出力: 指定区間・座標・フォント情報・PlayResを設定し、1フレーム=1イベントのASSファイルを生成。
-- 先読みキャッシュ: スクロールやループ再生でも安定したプレビューを維持。
+## ハイライト
+- 元動画とASCIIレンダリングを並べて表示するデュアルプレビュー。
+- グリッド解像度、FPS、ガンマ、コントラスト、明るさ、反転、文字セット、フォント情報、アスペクトロックなど豊富なトーン・レイアウト調整。
+- ASCIIキャンバス上で左ドラッグ/右ドラッグによるフレーム単位のマスク（消去／復帰）。書き出したASSにもマスク結果が反映されます。
+- フル動画／現在フレーム／任意範囲から選べるASS書き出し（1フレーム=1イベント、座標やPlayResも自由設定）。
+- `lucida-console.ttf`を優先し、Courier New / Menlo / DejaVu Sans Mono など複数の等幅フォントを自動検出してプレビューとエクスポートに共通利用。
+- `ascii_core.py`（変換ユーティリティ）と`ass_exporter.py`（字幕ライター）に分割されたモジュール構成で、GUIを使わずスクリプトからも呼び出しやすい。
 
-## 動作要件
-- Python 3.10以上 (標準Tkinterが使える環境)
-- pipで導入する外部ライブラリ
-  - numpy
-  - opencv-python
-  - pillow
-- macOS / Windows / Linux いずれも動作想定。macOSでは`python3`がTkinterを同梱しているバージョンを利用してください。
-- 大きな動画を扱う場合は十分なメモリとストレージを確保してください (`big_buck_bunny_1080p_h264.mov`を同梱)。
+## リポジトリ構成
+- `ascii_video_preview.py` – GUIエントリポイント。Tkinter + OpenCV + Pillowでプレビュー＆書き出しを提供。
+- `ascii_core.py` – `AsciiParams`やトーン補正、ASCII描画、マスク処理などの共通ロジック。
+- `ass_exporter.py` – GUIからも呼ばれるASS書き出しモジュール。バッチ処理時にも利用可能。
+- `*.ass` – 開発時に生成したサンプル字幕ファイル。
+- `venv/` – 任意のローカル仮想環境（必要に応じて削除・再作成してください）。
+
+## 必要要件
+- Tkinterを利用できるPython 3.10以上。
+- 追加パッケージ:
+  ```text
+  numpy
+  opencv-python
+  pillow
+  ```
+- OpenCVで読み込める動画（H.264 MP4推奨）。
 
 ## セットアップ
-1. 仮想環境を作成
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate  # Windowsは .venv\Scripts\activate
-   ```
-2. 依存パッケージをインストール
-   ```bash
-   python -m pip install --upgrade pip
-   python -m pip install numpy opencv-python pillow
-   ```
-3. フォント: 既定では`DejaVuSansMono.ttf`を探します。別フォントを使いたい場合は同じディレクトリに配置するか、GUIのエクスポートダイアログで任意のフォント名を入力してください。
+```bash
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install numpy opencv-python pillow
+```
+任意: `lucida-console.ttf`や`DejaVuSansMono.ttf`などの等幅フォントをスクリプトと同じディレクトリに置くか、システムにインストールしてください。アプリが自動検出したフォント名はプレビューとエクスポート設定に反映されます。
 
 ## 使い方
-### 1. プレビューを起動
+### 起動
 ```bash
-python ascii_video_preview.py               # ダイアログで動画を選択
-python ascii_video_preview.py sample.mp4    # 直接パスを指定
+python ascii_video_preview.py            # ファイルダイアログから選択
+python ascii_video_preview.py input.mp4  # パスを直接指定
 ```
-- `o` : 動画を開く
-- `Space` : 再生／一時停止
-- `r` : 冒頭へ巻き戻し
-- `e` : ASSエクスポートダイアログ
 
-### 2. パラメータ調整
-- **Cols / Rows**: ASCIIグリッドの解像度。Lock aspectを有効にすると動画比率に合わせて行数を自動調整。
-- **FPS**: プレビューおよび書き出し間隔。高すぎるとASSファイルが巨大になるので注意。
-- **Gamma / Contrast / Brightness**: グレースケール→文字マッピング前のトーン調整。
-- **Charset / Invert / Font size**: キャラクターセット、輝度反転、表示フォントサイズ。
-- **Eraser/Restore**: ASCII表示をクリックドラッグして部分的にマスク。
-- **Frame Slider/Spinbox**: 任意フレームにジャンプ。動画の終端で自動ループします。
+### ホットキー・コントロール
+- `o` – 動画を開く
+- `Space` – 再生/一時停止（起動直後は一時停止状態）
+- `r` – 先頭フレームへ巻き戻し
+- `e` – ASSエクスポートダイアログ
+- スライダー/スピンボックス – 任意フレームへジャンプ（末尾到達でループ）
+- Lock aspect – 現在のフォント寸法と動画比率から行数を自動調整（初期状態でON）
+- Eraser（左ドラッグ）/Restore（右ドラッグ） – セル単位のマスク。`Clear Eraser (frame)`でリセット
 
-### 3. ASS字幕を書き出す
-1. `Export ASS (e)`を押してダイアログを開く。
-2. 下記パラメータを入力。
-   - Start / Duration (sec): フレーム列の開始時刻と書き出し秒数。
-   - Position X / Y: `PlayResX/Y`座標系での配置点。UI上のASCII描画位置と揃えたい場合は再生ウィンドウのサイズに合わせて調整。
-   - Font name / Font size: ASSスタイルの書式。例: `DejaVu Sans Mono`, `Menlo`.
-   - PlayResX / PlayResY: 字幕側の仮想解像度 (例: 1920x1080)。
-3. 保存先`.ass`ファイルを指定すると1フレームごとのDialogueイベントを生成します。
-4. 推奨ワークフロー: Aegisubで最終確認 → YTSubConverterでウェブ向けに変換 → YouTubeへアップロード。
+### ASSエクスポート
+1. `Export ASS (e)`を押す。
+2. フル動画／現在フレーム／任意範囲から書き出し対象を選び、`pos_x/pos_y`・フォント情報・PlayResを入力します。各ASCIIフレームが`\an7\pos(...)`付きDialogueイベントになり、マスク結果も反映されます。
+3. 出力先`.ass`を指定して保存。
+4. 推奨フロー: Aegisubで確認 → [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter)で必要に応じて変換 → YouTube等へアップロード。
 
-## チューニングのヒント
-- 列・行数を上げるほど細部が出ますが、処理とASSファイルが重くなります。YouTube字幕として使う場合は`cols=100前後`, `fps=10-12`程度が扱いやすい目安です。
-- 文字セットは`Dense (16)`が最も細かい階調、`Blocks (5)`は大胆な表現に向きます。
-- ガンマ・コントラストは暗部/明部で文字が潰れる場合に小刻みに変えてください。
-- 明滅対策として輝度を抑えたい場合はBrightnessをマイナス方向へ。
-- ASCIIマスクは動画ファイルごと・フレームごとに保持されます。`Clear Eraser (frame)`ボタンでリセット可能。
+### スクリプトからの利用
+バッチ処理を行いたい場合は`ascii_core.py`/`ass_exporter.py`から`AsciiParams`や`frame_to_ascii`、`export_ass`をインポートして使用できます。GUIに依存しない純Python関数です。
 
-## よくある問題と対処
-- **動画が開けない**: コーデック非対応の場合はH.264 MP4へ変換してください。
-  ```bash
-  ffmpeg -i input.mov -c:v libx264 -crf 18 -preset veryfast -c:a aac output.mp4
-  ```
-- **Tkinterが見つからない**: Linuxの場合`python3-tk`等をOSパッケージからインストールしてください。
-- **フォントがずれる**: 固定幅フォントを利用し、エクスポート時のフォント名とプレビューで使っているフォントを揃えてください。
+## ヒント
+- 列・行数を増やすとディテールは上がりますが、処理コストとASSファイルサイズが急増します。`cols≈100 / rows≈45 / fps=10–12`が扱いやすい目安です。
+- 滑らかな階調には`Dense (16)`、大胆なブロック表現には`Blocks (5)`が便利。
+- まずガンマやコントラストを調整してから明るさを上げるとハイライトの飽和を避けやすいです。
+- 反転は明色背景の映像にASCII字幕を重ねる場合に有効です。
 
-## サンプル
-- `big_buck_bunny_1080p_h264.mov`を同梱しているので、初回はこれを使って操作感を確認できます。
+## サンプルメディア
+このリポジトリでは大容量動画を同梱していません。テスト用途にはBlender Foundationが公開するCC映画 **Big Buck Bunny** を公式サイトからダウンロードしてご利用ください: [https://peach.blender.org/](https://peach.blender.org/)
 
 ## ライセンス
-現在このリポジトリにはライセンスファイルが含まれていません。公開・配布する場合は適切なライセンス文書を追加してください。
+[MIT](LICENSE)

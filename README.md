@@ -2,82 +2,76 @@
 
 [日本語](README.ja.md)
 
-ASScii is a desktop tool that turns any video into live ASCII art and exports the frames as Aegisub-compatible ASS subtitles. The Tkinter UI shows the original feed and the ASCII rendering side by side, letting you fine-tune visual parameters and immediately push the same settings into a frame-by-frame subtitle export.
+ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art and exports every rendered frame as Aegisub-compatible ASS subtitles. It is optimized for creators who want to author stylized overlays or subtitles that can later be synced and published on video platforms.
 
-## Features
-- Dual previews so you can compare the source video and the ASCII rendition in real time.
-- Rich tuning parameters: grid columns/rows, FPS, gamma, contrast, brightness, inversion, and multiple character sets (Blocks / Classic / Dense).
-- On-canvas erase/restore brushes for hiding sensitive areas before you export.
-- Frame controls with slider/spinbox plus hotkeys for play/pause (`Space`), open (`o`), rewind (`r`), and export (`e`).
-- ASS exporter that maps each rendered frame to a dialogue event with adjustable start time, duration, position, font, and PlayRes.
-- Prefetch cache to keep playback smooth while scrubbing or looping.
+## Highlights
+- Real-time dual preview so you can see the original frame and the ASCII rendition side by side.
+- Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, charset presets, and font metrics with optional aspect locking.
+- Per-frame erase/restore masks to hide areas directly on the ASCII canvas *and* carry those edits into the exported ASS.
+- Frame-accurate ASS exporter with selectable ranges (full video / current frame / custom window) that writes one Dialogue event per rendered frame with configurable position, PlayRes, and style.
+- Smart monospace font detection (prefers `lucida-console.ttf`, falls back to Courier New, Menlo, DejaVu Sans Mono, etc.) so both the preview and exported subtitles share the same metrics.
+- Modular code split across `ascii_core.py` (conversion utilities) and `ass_exporter.py` (subtitle writer) so you can script custom pipelines if needed.
+
+## Repository layout
+- `ascii_video_preview.py` – GUI entry point (Tkinter + OpenCV + Pillow). Launch this script to run the previewer/exporter.
+- `ascii_core.py` – reusable ASCII conversion helpers (`AsciiParams`, tone curve, image renderer, masking utility).
+- `ass_exporter.py` – standalone ASS writer invoked by the GUI; can be imported into other scripts for batch jobs.
+- `*.ass` – sample subtitle exports generated during development (useful as references).
+- `venv/` – optional local virtual environment (not required; you can delete or recreate it).
 
 ## Requirements
-- Python 3.10+ with Tkinter available.
-- Python packages: `numpy`, `opencv-python`, `pillow`.
-- macOS, Windows, and Linux are supported (ensure your Python build ships with Tk on macOS).
-- Keep enough disk space and RAM when processing large clips; `big_buck_bunny_1080p_h264.mov` is included for testing.
+- Python 3.10 or newer with Tkinter available.
+- Python packages:
+  ```text
+  numpy
+  opencv-python
+  pillow
+  ```
+- A video file encoded with a format supported by OpenCV (H.264 MP4 works best).
 
 ## Setup
-1. Create a virtual environment.
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate          # Windows: .venv\Scripts\activate
-   ```
-2. Install dependencies.
-   ```bash
-   python -m pip install --upgrade pip
-   python -m pip install numpy opencv-python pillow
-   ```
-3. Fonts: the app looks for `DejaVuSansMono.ttf` by default. Place another monospace font next to the script or type the name in the export dialog if you prefer different lettering.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install numpy opencv-python pillow
+```
+Optional: place your preferred monospace font (e.g., `lucida-console.ttf`, `DejaVuSansMono.ttf`) next to the scripts or install it system-wide. The app will auto-detect several popular fonts and mirror that selection in the export dialog.
 
 ## Usage
-### Launch the previewer
+### Launching
 ```bash
-python ascii_video_preview.py               # pick a video via file dialog
-python ascii_video_preview.py sample.mp4    # pass a path directly
+python ascii_video_preview.py            # open a file dialog
+python ascii_video_preview.py input.mp4  # skip the dialog
 ```
-Hotkeys:
-- `o` — open video
-- `Space` — toggle play/pause
-- `r` — rewind to frame 0
-- `e` — open the ASS export dialog
 
-### Tune the ASCII renderer
-- **Cols / Rows** set the ASCII grid resolution. Enable Lock aspect to maintain the video aspect ratio.
-- **FPS** controls playback and export cadence. Higher FPS increases file size.
-- **Gamma / Contrast / Brightness** adjust luminance before mapping pixels to characters.
-- **Charset / Invert / Font size** customize the glyph palette, polarity, and on-screen font size.
-- **Eraser / Restore** lets you paint masks directly on the ASCII preview per frame.
-- **Frame slider / spinbox** jumps to any frame; playback loops when the file ends.
+### Hotkeys & controls
+- `o` – pick a video.
+- `Space` – play/pause.
+- `r` – rewind to frame 0.
+- `e` – open the ASS export dialog.
+- Slider/spinbox – jump to an arbitrary frame (loops when the end is reached).
+- Lock aspect – ties row count to the current video aspect ratio using the active font metrics.
+- Eraser (left drag) / Restore (right drag) – toggle per-cell masks; `Clear Eraser (frame)` resets the current frame mask.
+  - Playback starts paused and aspect lock is enabled by default so you can tweak settings before rendering.
 
-### Export ASS subtitles
-1. Press `Export ASS (e)` to open the dialog.
-2. Fill out:
-   - `Start / Duration (sec)` — time window to render.
-   - `Position X / Y` — ASS coordinates relative to `PlayResX / PlayResY`.
-   - `Font name / Font size` — subtitle style; e.g., `DejaVu Sans Mono`.
-   - `PlayResX / PlayResY` — target script resolution (e.g., 1920×1080).
-3. Choose an `.ass` destination. Each frame becomes a `Dialogue` event with `\an7\pos(...)` so you can overlay anywhere.
-4. Suggested pipeline: verify in Aegisub → convert via YTSubConverter → upload to YouTube.
+### Exporting ASS subtitles
+1. Press `Export ASS (e)`.
+2. Pick an export range: **Full video**, **Current frame** (one-frame snapshot), or **Custom** (manual start/duration). Provide position `(pos_x, pos_y)`, font info, and PlayRes values. Each rendered ASCII frame becomes a Dialogue event anchored with `\an7\pos(...)`.
+3. Choose an output path to write the `.ass` file. Any erased cells are baked into the output.
+4. Recommended workflow: review in Aegisub → convert via [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter) if necessary → upload to YouTube (or similar).
 
-## Tuning tips
-- Higher column/row counts yield detail but explode processing time and subtitle size. Around `cols=100`, `fps=10–12` works well for YouTube captions.
-- `Dense (16)` gives the smallest luminance steps, while `Blocks (5)` emphasizes chunky art styles.
-- Use gamma and contrast to rescue crushed shadows or blown highlights.
-- Drop brightness slightly if you want to limit flicker on bright scenes.
-- Masks persist per frame/video; hit `Clear Eraser (frame)` to reset.
+### Programmatic use
+If you want to batch-process footage, import `AsciiParams`, `frame_to_ascii`, or `export_ass` from `ascii_core.py` / `ass_exporter.py` and call them from your own scripts. The helper functions are pure Python and stay independent from the GUI.
 
-## Troubleshooting
-- **Video fails to load** — re-encode to H.264 MP4.
-  ```bash
-  ffmpeg -i input.mov -c:v libx264 -crf 18 -preset veryfast -c:a aac output.mp4
-  ```
-- **Missing Tkinter** — install the OS package (e.g., `sudo apt install python3-tk` on Debian/Ubuntu).
-- **Font misalignment** — stick to monospaced fonts and match the preview font to your export font.
+## Tips
+- Higher column/row counts drastically increase render time and subtitle size. Values around `cols=100`, `rows≈45`, `fps=10–12` offer a good balance for web playback.
+- Try the `Dense (16)` charset for smooth gradients or `Blocks (5)` for bold posterized art.
+- Adjust gamma and contrast before raising brightness; this keeps highlights from clipping.
+- Use inversion when targeting light-on-dark video overlays.
 
-## Sample clip
-- Use the bundled `big_buck_bunny_1080p_h264.mov` to try the workflow immediately.
+## Sample media
+This repository purposely does **not** bundle large videos. Download the Creative Commons film **Big Buck Bunny** from the Blender Foundation: [https://peach.blender.org/](https://peach.blender.org/) and point the previewer to the downloaded clip for testing.
 
 ## License
-A license file is not included yet. Add an appropriate license before distributing the project.
+[MIT](LICENSE)
