@@ -7,6 +7,8 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
 ![screenshot](imgs/screenshot.png)
 [Sample Video is here.](https://youtu.be/F6egk1YDVNs?si=4CGu6RdAGxIfq4wy)
 
+[Side by Side Ver.](https://youtube.com/shorts/jswRuja-WOU)
+
 ## Highlights
 - Real-time dual preview so you can see the original frame and the ASCII rendition side by side.
 - Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, charset presets, and font metrics with optional aspect locking.

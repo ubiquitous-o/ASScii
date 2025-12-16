@@ -7,6 +7,8 @@ ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリ�
 ![スクリーンショット](imgs/screenshot.png)
 [Sample Video is here.](https://youtu.be/F6egk1YDVNs?si=4CGu6RdAGxIfq4wy)
 
+[Side by Side Ver.](https://youtube.com/shorts/jswRuja-WOU)
+
 ## ハイライト
 - 元動画とASCIIレンダリングを並べて表示するデュアルプレビュー。
 - グリッド解像度、FPS、ガンマ、コントラスト、明るさ、反転、文字セット、フォント情報、アスペクトロックなど豊富なトーン・レイアウト調整。
