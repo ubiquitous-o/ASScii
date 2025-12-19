@@ -27,6 +27,7 @@ class AsciiParams:
     invert: bool = True
     binarize: bool = False
     binarize_threshold: int = 128
+    binarize_custom_mode: str = "gradient"
     gamma: float = 1.0
     contrast: float = 1.0
     brightness: float = 0.0  # -100..100
@@ -47,20 +48,52 @@ def frame_to_ascii(gray: np.ndarray, params: AsciiParams) -> list[str]:
     small = cv2.resize(gray, (params.cols, params.rows), interpolation=cv2.INTER_AREA)
     small = apply_tone(small, params.gamma, params.contrast, params.brightness)
 
+    binary_mask: np.ndarray | None = None
     if params.binarize:
         thresh = int(np.clip(params.binarize_threshold, 0, 255))
-        small = np.where(small >= thresh, 255, 0).astype(np.uint8)
+        binary_mask = small >= thresh
+        small = np.where(binary_mask, 255, 0).astype(np.uint8)
 
     if params.invert:
         small = 255 - small
+        if binary_mask is not None:
+            binary_mask = ~binary_mask
 
     custom_charset = (params.custom_charset or "").rstrip("\n")
-    if params.charset_name == "Custom" and custom_charset:
+    custom_selected = params.charset_name == "Custom" and custom_charset
+    if custom_selected:
         charset = custom_charset
     else:
         charset = CHARSETS.get(params.charset_name, CHARSETS["Blocks (5)"])
     if not charset:
         charset = CHARSETS["Blocks (5)"]
+
+    use_pattern = (
+        params.binarize and
+        custom_selected and
+        params.binarize_custom_mode == "pattern" and
+        binary_mask is not None
+    )
+
+    if use_pattern:
+        pattern = charset
+        if len(pattern) == 0:
+            pattern = CHARSETS["Blocks (5)"]
+        pat_len = len(pattern)
+        idx = 0
+        lines: list[str] = []
+        mask = binary_mask
+        for r in range(mask.shape[0]):
+            row_chars: list[str] = []
+            for c in range(mask.shape[1]):
+                if mask[r, c]:
+                    row_chars.append(pattern[idx % pat_len])
+                    idx += 1
+                else:
+                    row_chars.append(" ")
+            lines.append("".join(row_chars))
+        return lines
+
     n = len(charset)
     idx = (small.astype(np.float32) / 255.0) * (n - 1)
     idx = (n - 1 - idx).astype(np.int32)

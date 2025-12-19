@@ -55,6 +55,7 @@ python asscii_app.py input.mp4  # skip the dialog
 - **Lock aspect** keeps the row count tied to the video aspect ratio based on the current font metrics (enabled by default).
 - **Eraser** (left drag) / **Restore** (right drag) toggle cells on the ASCII canvas; `Clear Eraser (frame)` resets the mask for the current frame.
 - Playback starts paused, so dial in the grid/tone controls before rendering new frames.
+- When **Binarize** is enabled you can pick between *gradient* (default two-tone mapping) and *pattern* mode. Pattern mode repeats the entire Custom charset string directly across the binary mask—for example entering `hello` will render `hellohello…` wherever the mask is white.
 
 ### Exporting ASS subtitles
 1. Press `Export ASS (e)`.

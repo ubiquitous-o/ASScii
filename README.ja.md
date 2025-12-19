@@ -55,6 +55,7 @@ python asscii_app.py input.mp4  # パスを直接指定
 - Lock aspect – フォントと動画の縦横比から行数を自動調整します（初期ON）。
 - Eraser（左ドラッグ）/Restore（右ドラッグ） – セル単位でマスク。`Clear Eraser (frame)`でそのフレームのマスクをリセット。
 - 再生はデフォルトで一時停止なので、設定を整えてからプレビューを更新してください。
+- **Binarize** を有効にすると、閾値だけでなくカスタム文字セット向けに「gradient（従来の濃淡マッピング）」と「pattern（文字列をそのままマスクに敷き詰める）」を切り替えられます。たとえば `hello` と入力して pattern を選ぶと、マスクされた領域に `hellohello...` が並びます。
 
 ### ASSエクスポート
 1. `Export ASS (e)`を押す。

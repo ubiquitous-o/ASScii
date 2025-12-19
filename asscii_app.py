@@ -221,6 +221,7 @@ class App:
         self.invert_var = tk.BooleanVar(value=self.params.invert)
         self.binarize_var = tk.BooleanVar(value=self.params.binarize)
         self.binarize_threshold_var = tk.IntVar(value=self.params.binarize_threshold)
+        self.binarize_mode_var = tk.StringVar(value=self.params.binarize_custom_mode)
         self.charset_var = tk.StringVar(value=self.params.charset_name)
         self.fontsize_var = tk.StringVar(value="auto")
         self.lock_aspect_var = tk.BooleanVar(value=True)
@@ -302,6 +303,13 @@ class App:
         self._binarize_slider.pack(side="left", padx=(0, 6))
         self.binarize_thresh_display = tk.StringVar(value=str(self.params.binarize_threshold))
         ctk.CTkLabel(tone_row, textvariable=self.binarize_thresh_display, width=40).pack(side="left")
+        ctk.CTkLabel(tone_row, text="Custom mode").pack(side="left", padx=(12, 6))
+        self.binarize_mode_menu = ctk.CTkOptionMenu(
+            tone_row,
+            variable=self.binarize_mode_var,
+            values=["gradient", "pattern"],
+        )
+        self.binarize_mode_menu.pack(side="left")
 
         def _on_binarize_slider(value):
             if getattr(self, "_binarize_slider_updating", False):
@@ -343,13 +351,16 @@ class App:
             self.invert_var,
             self.binarize_var,
             self.binarize_threshold_var,
+            self.binarize_mode_var,
             self.charset_var,
             self.custom_charset_var,
         ]:
             var.trace_add("write", lambda *args: self._sync_params())
 
         self.charset_var.trace_add("write", lambda *args: self._update_custom_charset_entry())
+        self.binarize_var.trace_add("write", lambda *args: self._update_binarize_controls())
         self._update_custom_charset_entry()
+        self._update_binarize_controls()
 
         self.cols_var.trace_add("write", lambda *args: self._maybe_lock_aspect())
         bind_int_display(self.cols_var, self.cols_display)
@@ -371,6 +382,20 @@ class App:
             self.custom_charset_entry.configure(state="normal")
         else:
             self.custom_charset_entry.pack_forget()
+        self._update_binarize_controls()
+
+    def _update_binarize_controls(self):
+        if not hasattr(self, "_binarize_slider"):
+            return
+        enabled = bool(self.binarize_var.get())
+        slider_state = "normal" if enabled else "disabled"
+        self._binarize_slider.configure(state=slider_state)
+        state = "normal" if enabled else "disabled"
+        # ensure display still updates
+        self.binarize_thresh_display.set(str(int(np.clip(self.binarize_threshold_var.get(), 0, 255))))
+        custom_enabled = enabled and self.charset_var.get() == "Custom"
+        menu_state = "normal" if custom_enabled else "disabled"
+        self.binarize_mode_menu.configure(state=menu_state)
 
     def _on_fontsize(self):
         try:
@@ -394,6 +419,7 @@ class App:
         self.params.invert = bool(self.invert_var.get())
         self.params.binarize = bool(self.binarize_var.get())
         self.params.binarize_threshold = int(self.binarize_threshold_var.get())
+        self.params.binarize_custom_mode = self.binarize_mode_var.get()
         self.params.charset_name = self.charset_var.get()
         self.params.custom_charset = self.custom_charset_var.get()
 
@@ -405,6 +431,7 @@ class App:
             self.params.invert != prev.invert or
             self.params.binarize != prev.binarize or
             self.params.binarize_threshold != prev.binarize_threshold or
+            self.params.binarize_custom_mode != prev.binarize_custom_mode or
             self.params.charset_name != prev.charset_name or
             self.params.custom_charset != prev.custom_charset
         )
