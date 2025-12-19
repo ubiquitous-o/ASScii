@@ -940,6 +940,28 @@ class App:
                     return mask
 
                 grid_pixel_w, grid_pixel_h = self._get_ascii_grid_pixel_size()
+                script_play_res_x = max(1, int(grid_pixel_w))
+                script_play_res_y = max(1, int(grid_pixel_h))
+                user_play_res_x = max(1, int(playx_var.get()))
+                user_play_res_y = max(1, int(playy_var.get()))
+
+                def to_script_coord(value: float, user_res: int, script_res: int) -> int:
+                    try:
+                        numeric = float(value)
+                    except Exception:
+                        numeric = 0.0
+                    if user_res <= 0 or script_res <= 0:
+                        return int(round(numeric))
+                    return int(round(numeric * script_res / user_res))
+
+                pos_x_script = to_script_coord(x_var.get(), user_play_res_x, script_play_res_x)
+                pos_y_script = to_script_coord(y_var.get(), user_play_res_y, script_play_res_y)
+
+                def to_center_coord(top_left: int, size: int) -> int:
+                    return int(round(top_left + size / 2.0))
+
+                pos_x_center = to_center_coord(pos_x_script, script_play_res_x)
+                pos_y_center = to_center_coord(pos_y_script, script_play_res_y)
 
                 export_ass(
                     video_path=self.video_path,
@@ -947,14 +969,12 @@ class App:
                     params=self.params,
                     start_sec=start_sec,
                     dur_sec=dur_sec,
-                    pos_x=int(x_var.get()),
-                    pos_y=int(y_var.get()),
+                    pos_x=pos_x_center,
+                    pos_y=pos_y_center,
                     fontname=str(fontname_var.get()),
                     fontsize=int(fontsize_var.get()),
-                    play_res_x=int(playx_var.get()),
-                    play_res_y=int(playy_var.get()),
-                    grid_pixel_w=grid_pixel_w,
-                    grid_pixel_h=grid_pixel_h,
+                    play_res_x=script_play_res_x,
+                    play_res_y=script_play_res_y,
                     mask_lookup=mask_lookup,
                 )
                 messagebox.showinfo("Export", f"Saved:\n{out}\n\nTip: run through Aegisub → YTSubConverter → YouTube.")

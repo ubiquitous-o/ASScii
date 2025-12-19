@@ -24,7 +24,7 @@ PlayResY: {play_res_y}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{fontname},{fontsize},&H00F5F5F5,&H000000FF,&H00101010,&H80101010,0,0,0,0,100,100,0,0,1,2,0,7,20,20,20,1
+Style: Default,{fontname},{fontsize},&H00F5F5F5,&H000000FF,&H00101010,&H80101010,0,0,0,0,100,100,0,0,1,2,0,5,20,20,20,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -85,8 +85,6 @@ def export_ass(
     fontsize: int,
     play_res_x: int,
     play_res_y: int,
-    grid_pixel_w: int,
-    grid_pixel_h: int,
     mask_lookup: Callable[[int], np.ndarray | None] | None = None,
 ) -> None:
     cap = cv2.VideoCapture(str(video_path))
@@ -136,15 +134,9 @@ def export_ass(
                     lines = apply_mask_to_ascii_lines(lines, mask)
             txt = lines_to_ass_text(lines)
 
-            grid_w = max(1, grid_pixel_w)
-            grid_h = max(1, grid_pixel_h)
-            scale_x = (play_res_x / grid_w) * 100.0 if grid_w > 0 else 100.0
-            scale_y = (play_res_y / grid_h) * 100.0 if grid_h > 0 else 100.0
-            scale_tag = f"\\fscx{scale_x:.2f}\\fscy{scale_y:.2f}"
-
             ass_line = (
                 f"Dialogue: 0,{sec_to_ass_time(t0)},{sec_to_ass_time(t1)},"
-                f"Default,,0,0,0,,{{\\an7{scale_tag}\\pos({pos_x},{pos_y})}}{txt}\n"
+                f"Default,,0,0,0,,{{\\an5\\pos({pos_x},{pos_y})}}{txt}\n"
             )
             f.write(ass_line)
             i += 1
