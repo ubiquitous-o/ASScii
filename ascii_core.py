@@ -25,6 +25,8 @@ class AsciiParams:
     charset_name: str = "Blocks (5)"
     custom_charset: str = ""
     invert: bool = True
+    binarize: bool = False
+    binarize_threshold: int = 128
     gamma: float = 1.0
     contrast: float = 1.0
     brightness: float = 0.0  # -100..100
@@ -44,6 +46,10 @@ def frame_to_ascii(gray: np.ndarray, params: AsciiParams) -> list[str]:
     """グレースケールフレームをASCII行配列に変換."""
     small = cv2.resize(gray, (params.cols, params.rows), interpolation=cv2.INTER_AREA)
     small = apply_tone(small, params.gamma, params.contrast, params.brightness)
+
+    if params.binarize:
+        thresh = int(np.clip(params.binarize_threshold, 0, 255))
+        small = np.where(small >= thresh, 255, 0).astype(np.uint8)
 
     if params.invert:
         small = 255 - small

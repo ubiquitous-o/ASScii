@@ -219,6 +219,8 @@ class App:
         self.contrast_var = tk.DoubleVar(value=self.params.contrast)
         self.brightness_var = tk.DoubleVar(value=self.params.brightness)
         self.invert_var = tk.BooleanVar(value=self.params.invert)
+        self.binarize_var = tk.BooleanVar(value=self.params.binarize)
+        self.binarize_threshold_var = tk.IntVar(value=self.params.binarize_threshold)
         self.charset_var = tk.StringVar(value=self.params.charset_name)
         self.fontsize_var = tk.StringVar(value="auto")
         self.lock_aspect_var = tk.BooleanVar(value=True)
@@ -294,12 +296,40 @@ class App:
         tone_row = ctk.CTkFrame(controls)
         tone_row.pack(fill="x", padx=8, pady=(6, 0))
         ctk.CTkSwitch(tone_row, text="Invert", variable=self.invert_var).pack(side="left")
-        ctk.CTkLabel(tone_row, text="Font size").pack(side="left", padx=(12, 6))
-        font_entry = ctk.CTkEntry(tone_row, textvariable=self.fontsize_var, width=60, justify="center")
+        ctk.CTkSwitch(tone_row, text="Binarize", variable=self.binarize_var).pack(side="left", padx=(12, 0))
+        ctk.CTkLabel(tone_row, text="Threshold").pack(side="left", padx=(12, 6))
+        self._binarize_slider = ctk.CTkSlider(tone_row, from_=0, to=255)
+        self._binarize_slider.pack(side="left", padx=(0, 6))
+        self.binarize_thresh_display = tk.StringVar(value=str(self.params.binarize_threshold))
+        ctk.CTkLabel(tone_row, textvariable=self.binarize_thresh_display, width=40).pack(side="left")
+
+        def _on_binarize_slider(value):
+            if getattr(self, "_binarize_slider_updating", False):
+                return
+            self.binarize_threshold_var.set(int(round(value)))
+
+        self._binarize_slider.configure(command=_on_binarize_slider)
+
+        def _sync_binarize_slider(*_):
+            val = int(np.clip(self.binarize_threshold_var.get(), 0, 255))
+            self.binarize_thresh_display.set(str(val))
+            self._binarize_slider_updating = True
+            try:
+                self._binarize_slider.set(val)
+            finally:
+                self._binarize_slider_updating = False
+
+        self.binarize_threshold_var.trace_add("write", _sync_binarize_slider)
+        _sync_binarize_slider()
+
+        font_row = ctk.CTkFrame(controls)
+        font_row.pack(fill="x", padx=8, pady=(6, 0))
+        ctk.CTkLabel(font_row, text="Font size").pack(side="left", padx=(0, 6))
+        font_entry = ctk.CTkEntry(font_row, textvariable=self.fontsize_var, width=60, justify="center")
         font_entry.pack(side="left")
         font_entry.bind("<Return>", lambda *_: self._on_fontsize())
         font_entry.bind("<FocusOut>", lambda *_: self._on_fontsize())
-        ctk.CTkSwitch(tone_row, text="Lock aspect", variable=self.lock_aspect_var).pack(side="left", padx=(12, 0))
+        ctk.CTkSwitch(font_row, text="Lock aspect", variable=self.lock_aspect_var).pack(side="left", padx=(12, 0))
 
         # transport frame already includes playback info and frame controls
 
@@ -311,6 +341,8 @@ class App:
             self.contrast_var,
             self.brightness_var,
             self.invert_var,
+            self.binarize_var,
+            self.binarize_threshold_var,
             self.charset_var,
             self.custom_charset_var,
         ]:
@@ -360,6 +392,8 @@ class App:
         self.params.contrast = float(self.contrast_var.get())
         self.params.brightness = float(self.brightness_var.get())
         self.params.invert = bool(self.invert_var.get())
+        self.params.binarize = bool(self.binarize_var.get())
+        self.params.binarize_threshold = int(self.binarize_threshold_var.get())
         self.params.charset_name = self.charset_var.get()
         self.params.custom_charset = self.custom_charset_var.get()
 
@@ -369,6 +403,8 @@ class App:
             self.params.contrast != prev.contrast or
             self.params.brightness != prev.brightness or
             self.params.invert != prev.invert or
+            self.params.binarize != prev.binarize or
+            self.params.binarize_threshold != prev.binarize_threshold or
             self.params.charset_name != prev.charset_name or
             self.params.custom_charset != prev.custom_charset
         )
