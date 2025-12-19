@@ -223,7 +223,7 @@ class App:
         self.brightness_var = tk.DoubleVar(value=self.params.brightness)
         self.invert_var = tk.BooleanVar(value=self.params.invert)
         self.charset_var = tk.StringVar(value=self.params.charset_name)
-        self.fontsize_var = tk.StringVar(value=str(self.fontsize))
+        self.fontsize_var = tk.StringVar(value="auto")
         self.lock_aspect_var = tk.BooleanVar(value=True)
         self.frame_var = tk.IntVar(value=0)
 
