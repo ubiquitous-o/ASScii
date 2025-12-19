@@ -78,10 +78,7 @@ class App:
         if video_path:
             self.open_video(video_path)
 
-        self.root.bind("<space>", self.toggle_pause)
-        self.root.bind("o", lambda e: self.ask_open())
-        self.root.bind("r", lambda e: self.rewind())
-        self.root.bind("e", lambda e: self.ask_export())
+
 
         self._loop()
 
@@ -159,13 +156,13 @@ class App:
         transport_buttons.pack(fill="x", padx=8, pady=(8, 4))
         transport_buttons.grid_columnconfigure((0, 1, 2), weight=1)
 
-        ctk.CTkButton(transport_buttons, text="Open (o)", command=self.ask_open).grid(
+        ctk.CTkButton(transport_buttons, text="Open", command=self.ask_open).grid(
             row=0, column=0, padx=4, pady=4, sticky="ew"
         )
-        ctk.CTkButton(transport_buttons, text="Pause/Play (space)", command=self.toggle_pause).grid(
+        ctk.CTkButton(transport_buttons, text="Pause/Play", command=self.toggle_pause).grid(
             row=0, column=1, padx=4, pady=4, sticky="ew"
         )
-        ctk.CTkButton(transport_buttons, text="Rewind (r)", command=self.rewind).grid(
+        ctk.CTkButton(transport_buttons, text="Rewind", command=self.rewind).grid(
             row=0, column=2, padx=4, pady=4, sticky="ew"
         )
 
@@ -200,7 +197,7 @@ class App:
         actions = ctk.CTkFrame(controls, fg_color="transparent")
         actions.pack(fill="x", padx=8, pady=(8, 4))
         actions.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(actions, text="Export ASS (e)", command=self.ask_export).grid(
+        ctk.CTkButton(actions, text="Export ASS", command=self.ask_export).grid(
             row=0, column=0, padx=4, pady=4, sticky="ew"
         )
         ctk.CTkButton(actions, text="Export Text", command=self.ask_export_text).grid(
@@ -279,22 +276,30 @@ class App:
         add_slider(1, 1, "Contrast", self.contrast_var, 0.3, 3.0)
         add_slider(1, 2, "Brightness", self.brightness_var, -100, 100)
 
-        extra = ctk.CTkFrame(controls)
-        extra.pack(fill="x", padx=8, pady=(8, 0))
-
-        ctk.CTkLabel(extra, text="Charset").pack(side="left", padx=(0, 6))
-        charset_menu = ctk.CTkOptionMenu(extra, variable=self.charset_var, values=list(CHARSETS.keys()))
+        charset_row = ctk.CTkFrame(controls)
+        charset_row.pack(fill="x", padx=8, pady=(8, 0))
+        ctk.CTkLabel(charset_row, text="Charset").pack(side="left", padx=(0, 6))
+        charset_values = list(CHARSETS.keys()) + ["Custom"]
+        charset_menu = ctk.CTkOptionMenu(charset_row, variable=self.charset_var, values=charset_values)
         charset_menu.pack(side="left")
 
-        ctk.CTkSwitch(extra, text="Invert", variable=self.invert_var).pack(side="left", padx=10)
+        self.custom_charset_var = tk.StringVar(value=self.params.custom_charset)
+        self.custom_charset_entry = ctk.CTkEntry(
+            charset_row,
+            textvariable=self.custom_charset_var,
+            width=240,
+            placeholder_text="Custom chars",
+        )
 
-        ctk.CTkLabel(extra, text="Font size").pack(side="left", padx=(10, 6))
-        font_entry = ctk.CTkEntry(extra, textvariable=self.fontsize_var, width=60, justify="center")
+        tone_row = ctk.CTkFrame(controls)
+        tone_row.pack(fill="x", padx=8, pady=(6, 0))
+        ctk.CTkSwitch(tone_row, text="Invert", variable=self.invert_var).pack(side="left")
+        ctk.CTkLabel(tone_row, text="Font size").pack(side="left", padx=(12, 6))
+        font_entry = ctk.CTkEntry(tone_row, textvariable=self.fontsize_var, width=60, justify="center")
         font_entry.pack(side="left")
         font_entry.bind("<Return>", lambda *_: self._on_fontsize())
         font_entry.bind("<FocusOut>", lambda *_: self._on_fontsize())
-
-        ctk.CTkSwitch(extra, text="Lock aspect", variable=self.lock_aspect_var).pack(side="left", padx=(12, 0))
+        ctk.CTkSwitch(tone_row, text="Lock aspect", variable=self.lock_aspect_var).pack(side="left", padx=(12, 0))
 
         # transport frame already includes playback info and frame controls
 
@@ -307,8 +312,12 @@ class App:
             self.brightness_var,
             self.invert_var,
             self.charset_var,
+            self.custom_charset_var,
         ]:
             var.trace_add("write", lambda *args: self._sync_params())
+
+        self.charset_var.trace_add("write", lambda *args: self._update_custom_charset_entry())
+        self._update_custom_charset_entry()
 
         self.cols_var.trace_add("write", lambda *args: self._maybe_lock_aspect())
         bind_int_display(self.cols_var, self.cols_display)
@@ -320,6 +329,16 @@ class App:
 
         self._on_aspect_lock_toggle()
         self._update_frame_controls()
+
+    def _update_custom_charset_entry(self):
+        if not hasattr(self, "custom_charset_entry"):
+            return
+        if self.charset_var.get() == "Custom":
+            if not self.custom_charset_entry.winfo_manager():
+                self.custom_charset_entry.pack(side="left", padx=(6, 0))
+            self.custom_charset_entry.configure(state="normal")
+        else:
+            self.custom_charset_entry.pack_forget()
 
     def _on_fontsize(self):
         try:
@@ -342,6 +361,7 @@ class App:
         self.params.brightness = float(self.brightness_var.get())
         self.params.invert = bool(self.invert_var.get())
         self.params.charset_name = self.charset_var.get()
+        self.params.custom_charset = self.custom_charset_var.get()
 
         dims_changed = self.params.cols != prev.cols or self.params.rows != prev.rows
         tone_changed = (
@@ -349,7 +369,8 @@ class App:
             self.params.contrast != prev.contrast or
             self.params.brightness != prev.brightness or
             self.params.invert != prev.invert or
-            self.params.charset_name != prev.charset_name
+            self.params.charset_name != prev.charset_name or
+            self.params.custom_charset != prev.custom_charset
         )
 
         if dims_changed:

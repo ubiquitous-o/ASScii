@@ -11,7 +11,7 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
 
 ## Highlights
 - Real-time dual preview so you can see the original frame and the ASCII rendition side by side.
-- Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, charset presets, and font metrics with optional aspect locking.
+- Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, built-in charset presets *or* a free-form custom charset (multi-byte/Japanese characters supported) with optional aspect locking.
 - Per-frame erase/restore masks to hide areas directly on the ASCII canvas *and* carry those edits into the exported ASS.
 - Frame-accurate ASS exporter with selectable ranges (full video / current frame / custom window) that writes one Dialogue event per rendered frame. It now normalizes coordinates/size to YouTube’s 384×288 PlayRes and auto-derives the proper `\fs` multiplier, so Aegisub and YTSubConverter show identical layouts out of the box.
 - Smart monospace font detection (prefers `lucida-console.ttf`, falls back to Courier New, Menlo, DejaVu Sans Mono, etc.) so both the preview and exported subtitles share the same metrics.
@@ -49,16 +49,12 @@ python asscii_app.py            # open a file dialog
 python asscii_app.py input.mp4  # skip the dialog
 ```
 
-### Hotkeys & controls
-- `o` – pick a video.
-- `Space` – play/pause.
-- `r` – rewind to frame 0.
-- `e` – open the ASS export dialog.
-- `Export Text` button – save the current ASCII frame as a plain `.txt` file.
-- Slider/spinbox – jump to an arbitrary frame (loops when the end is reached).
-- Lock aspect – ties row count to the current video aspect ratio using the active font metrics.
-- Eraser (left drag) / Restore (right drag) – toggle per-cell masks; `Clear Eraser (frame)` resets the current frame mask.
-  - Playback starts paused and aspect lock is enabled by default so you can tweak settings before rendering.
+### Controls
+- Use the `Open`, `Pause/Play`, `Rewind`, `Export ASS`, and `Export Text` buttons for the core actions.
+- The frame slider and numeric entry jump to any frame (looping when the end is reached).
+- **Lock aspect** keeps the row count tied to the video aspect ratio based on the current font metrics (enabled by default).
+- **Eraser** (left drag) / **Restore** (right drag) toggle cells on the ASCII canvas; `Clear Eraser (frame)` resets the mask for the current frame.
+- Playback starts paused, so dial in the grid/tone controls before rendering new frames.
 
 ### Exporting ASS subtitles
 1. Press `Export ASS (e)`.

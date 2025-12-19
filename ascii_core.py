@@ -23,6 +23,7 @@ class AsciiParams:
     rows: int = 45
     fps: float = 12.0
     charset_name: str = "Blocks (5)"
+    custom_charset: str = ""
     invert: bool = True
     gamma: float = 1.0
     contrast: float = 1.0
@@ -47,7 +48,13 @@ def frame_to_ascii(gray: np.ndarray, params: AsciiParams) -> list[str]:
     if params.invert:
         small = 255 - small
 
-    charset = CHARSETS.get(params.charset_name, CHARSETS["Blocks (5)"])
+    custom_charset = (params.custom_charset or "").rstrip("\n")
+    if params.charset_name == "Custom" and custom_charset:
+        charset = custom_charset
+    else:
+        charset = CHARSETS.get(params.charset_name, CHARSETS["Blocks (5)"])
+    if not charset:
+        charset = CHARSETS["Blocks (5)"]
     n = len(charset)
     idx = (small.astype(np.float32) / 255.0) * (n - 1)
     idx = (n - 1 - idx).astype(np.int32)
