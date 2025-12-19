@@ -13,7 +13,7 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
 - Real-time dual preview so you can see the original frame and the ASCII rendition side by side.
 - Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, charset presets, and font metrics with optional aspect locking.
 - Per-frame erase/restore masks to hide areas directly on the ASCII canvas *and* carry those edits into the exported ASS.
-- Frame-accurate ASS exporter with selectable ranges (full video / current frame / custom window) that writes one Dialogue event per rendered frame with configurable position, PlayRes, and style, automatically scaling the ASCII block to fit the video resolution.
+- Frame-accurate ASS exporter with selectable ranges (full video / current frame / custom window) that writes one Dialogue event per rendered frame. It now normalizes coordinates/size to YouTube’s 384×288 PlayRes and auto-derives the proper `\fs` multiplier, so Aegisub and YTSubConverter show identical layouts out of the box.
 - Smart monospace font detection (prefers `lucida-console.ttf`, falls back to Courier New, Menlo, DejaVu Sans Mono, etc.) so both the preview and exported subtitles share the same metrics.
 - Modular code split across `ascii_core.py` (conversion utilities) and `ass_exporter.py` (subtitle writer) so you can script custom pipelines if needed.
 
@@ -62,12 +62,17 @@ python asscii_app.py input.mp4  # skip the dialog
 
 ### Exporting ASS subtitles
 1. Press `Export ASS (e)`.
-2. Pick an export range: **Full video**, **Current frame** (one-frame snapshot), or **Custom** (manual start/duration). Provide position `(pos_x, pos_y)`, font info, and PlayRes values. Each rendered ASCII frame becomes a Dialogue event anchored with `\an7\pos(...)`.
+2. Pick an export range: **Full video**, **Current frame** (one-frame snapshot), or **Custom** (manual start/duration). Provide the on-video `(pos_x, pos_y)` where the ASCII block should appear. `PlayResX/Y` now default to YouTube’s internal 384×288 canvas; the exporter automatically rescales your coordinates, rows/cols, and font size to that grid and emits `\fs` overrides relative to the 15pt `Default` style.
 3. Choose an output path to write the `.ass` file. Any erased cells are baked into the output.
-4. Recommended workflow: review in Aegisub → convert via [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter) if necessary → upload to YouTube (or similar).
+4. Recommended workflow: review in Aegisub (everything should align 1:1 with the video), then convert via [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter) and upload to YouTube (or similar). No manual size tweaks are required anymore.
 
 ### Exporting ASCII text
 Press `Export Text` to dump the currently displayed ASCII frame (after masks) to a UTF-8 `.txt` file—handy for sharing static art or debugging.
+
+### Notes for YouTube / YTSubConverter
+- The exporter always writes `PlayResX=384`, `PlayResY=288`, matching the reference files bundled with YTSubConverter. Your video-space coordinates are remapped to that grid, including the 2% safe margins YouTube enforces.
+- `Default` style stays at 15pt (the YouTube baseline) and every ASCII Dialogue line adds `\fs…` so the actual glyph size is `fontsize / 15`. This mirrors how YTSubConverter interprets font overrides, ensuring YT and Aegisub show identical sizes.
+- Stick to fonts that YouTube supports (Roboto, Courier New, etc.) for consistent spacing. The GUI’s font picker highlights the current face so you can keep previews/export in sync.
 
 ### Programmatic use
 If you want to batch-process footage, import `AsciiParams`, `frame_to_ascii`, or `export_ass` from `ascii_core.py` / `ass_exporter.py` and call them from your own scripts. The helper functions are pure Python and stay independent from the GUI.

@@ -13,7 +13,7 @@ ASSciiは、Tkinter製のデスクトップアプリで動画フレームをリ�
 - 元動画とASCIIレンダリングを並べて表示するデュアルプレビュー。
 - グリッド解像度、FPS、ガンマ、コントラスト、明るさ、反転、文字セット、フォント情報、アスペクトロックなど豊富なトーン・レイアウト調整。
 - ASCIIキャンバス上で左ドラッグ/右ドラッグによるフレーム単位のマスク（消去／復帰）。書き出したASSにもマスク結果が反映されます。
-- フル動画／現在フレーム／任意範囲から選べるASS書き出し（1フレーム=1イベント、座標やPlayResも自由設定）で、ASCIIブロックを映像解像度に合わせて自動スケーリング。
+- フル動画／現在フレーム／任意範囲から選べるASS書き出し（1フレーム=1イベント）。YouTubeが採用する384×288のPlayResへ自動正規化し、`Default`スタイル15ptを基準にした`\fs`倍率を自動計算するため、AegisubとYTSubConverterの見た目が一致します。
 - `lucida-console.ttf`を優先し、Courier New / Menlo / DejaVu Sans Mono など複数の等幅フォントを自動検出してプレビューとエクスポートに共通利用。
 - `ascii_core.py`（変換ユーティリティ）と`ass_exporter.py`（字幕ライター）に分割されたモジュール構成で、GUIを使わずスクリプトからも呼び出しやすい。
 
@@ -61,12 +61,17 @@ python asscii_app.py input.mp4  # パスを直接指定
 
 ### ASSエクスポート
 1. `Export ASS (e)`を押す。
-2. フル動画／現在フレーム／任意範囲から書き出し対象を選び、`pos_x/pos_y`・フォント情報・PlayResを入力します。各ASCIIフレームが`\an7\pos(...)`付きDialogueイベントになり、マスク結果も反映されます。
+2. フル動画／現在フレーム／任意範囲から書き出し対象を選び、映像上での`pos_x/pos_y`を入力します。PlayResはデフォルトでYouTube基準の384×288になっており、GUIが座標・列/行・フォントサイズを自動的にそのグリッドへマッピングし、`Default`スタイル15ptに対する`\fs`倍率を挿入します。
 3. 出力先`.ass`を指定して保存。
-4. 推奨フロー: Aegisubで確認 → [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter)で必要に応じて変換 → YouTube等へアップロード。
+4. 推奨フロー: Aegisubで仕上がりを確認したら、そのまま [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter) → YouTubeへ投入してください。手動でサイズを合わせる必要はありません。
 
 ### ASCIIテキストのエクスポート
 `Export Text` を押すと、現在プレビュー中のASCIIフレーム（マスク適用済み）をUTF-8テキストとして保存できます。静止画シェアやデバッグに便利です。
+
+### YouTube / YTSubConverter向け注意点
+- エクスポーターは常に`PlayResX=384`, `PlayResY=288`を出力し、YouTubeが内部で確保しているキャンバスと同じスケールに合わせます。動画座標はこのグリッドへ自動変換され、YouTube側の2%セーフマージンも考慮されます。
+- `Default`スタイルは15pt固定で、各Dialogueには`\fs`タグが挿入されます（`\fs`値 ÷ 15 が倍率）。そのためAegisubとYTSubConverterの描画倍率が一致します。
+- YouTubeがサポートするフォント（Roboto / Courier Newなど）を選ぶと、プレビューと本番の字幅が一致しやすくなります。
 
 ### スクリプトからの利用
 バッチ処理を行いたい場合は`ascii_core.py`/`ass_exporter.py`から`AsciiParams`や`frame_to_ascii`、`export_ass`をインポートして使用できます。GUIに依存しない純Python関数です。
