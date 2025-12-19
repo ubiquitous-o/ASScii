@@ -953,8 +953,8 @@ class App:
         dlg.title("Export ASS (frame-by-frame)")
         dlg.geometry("560x420")
 
-        start_var = tk.DoubleVar(value=0.0)
-        dur_var = tk.DoubleVar(value=5.0)
+        start_frames_var = tk.IntVar(value=0)
+        frame_count_var = tk.IntVar(value=max(int(self.params.fps * 5), 1))
         x_var = tk.IntVar(value=0)
         y_var = tk.IntVar(value=0)
         fontsize_var = tk.StringVar(value="auto")
@@ -976,8 +976,8 @@ class App:
 
         frm.columnconfigure(1, weight=1)
 
-        start_entry = row("Start (sec)", start_var, 0, "e.g., 12.5")
-        dur_entry = row("Duration (sec)", dur_var, 1, "keep small; ASS gets huge")
+        start_entry = row("Start frame", start_frames_var, 0, "0-based")
+        dur_entry = row("Frame count", frame_count_var, 1, "ASCII frames")
         row("Position X", x_var, 2, "PlayRes coords")
         row("Position Y", y_var, 3, "PlayRes coords")
         row("Font name", fontname_var, 4, "ASS style")
@@ -1014,7 +1014,7 @@ class App:
             try:
                 self._sync_params()
                 mode = mode_var.get()
-                start_sec = max(float(start_var.get()), 0.0)
+                start_sec = 0.0
                 dur_sec: float | None
                 if mode == "full":
                     start_sec = 0.0
@@ -1027,10 +1027,13 @@ class App:
                     start_sec = frame_idx / video_fps
                     dur_sec = 1.0 / max(self.params.fps, 1e-6)
                 else:
-                    dur_value = float(dur_var.get())
-                    if dur_value <= 0:
-                        raise ValueError("Duration must be positive.")
-                    dur_sec = dur_value
+                    start_frames = max(int(start_frames_var.get()), 0)
+                    video_fps = max(float(self.video_fps), 1e-6)
+                    start_sec = start_frames / video_fps
+                    frame_count = int(frame_count_var.get())
+                    if frame_count <= 0:
+                        raise ValueError("Frame count must be positive.")
+                    dur_sec = frame_count / max(self.params.fps, 1e-6)
 
                 expected_shape = (self.params.rows, self.params.cols)
 

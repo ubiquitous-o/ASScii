@@ -59,7 +59,7 @@ python asscii_app.py input.mp4  # skip the dialog
 
 ### Exporting ASS subtitles
 1. Press `Export ASS (e)`.
-2. Pick an export range: **Full video**, **Current frame** (one-frame snapshot), or **Custom** (manual start/duration). Provide the on-video `(pos_x, pos_y)` where the ASCII block should appear. `PlayResX/Y` now default to YouTube’s internal 384×288 canvas; the exporter automatically rescales your coordinates, rows/cols, and font size to that grid and emits `\fs` overrides relative to the 15pt `Default` style.
+2. Pick an export range: **Full video**, **Current frame** (one-frame snapshot), or **Custom**. In custom mode you now enter the start frame index (0-based) and how many ASCII frames to export; the tool converts those to seconds internally before writing the ASS. Provide the on-video `(pos_x, pos_y)` where the ASCII block should appear. `PlayResX/Y` default to YouTube’s internal 384×288 canvas, so the exporter rescales coordinates, rows/cols, and font size automatically and emits `\fs` overrides relative to the 15pt `Default` style.
 3. Choose an output path to write the `.ass` file. Any erased cells are baked into the output.
 4. Recommended workflow: review in Aegisub (everything should align 1:1 with the video), then convert via [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter) and upload to YouTube (or similar). No manual size tweaks are required anymore.
 

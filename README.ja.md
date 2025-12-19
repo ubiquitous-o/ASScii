@@ -59,7 +59,7 @@ python asscii_app.py input.mp4  # パスを直接指定
 
 ### ASSエクスポート
 1. `Export ASS (e)`を押す。
-2. フル動画／現在フレーム／任意範囲から書き出し対象を選び、映像上での`pos_x/pos_y`を入力します。PlayResはデフォルトでYouTube基準の384×288になっており、GUIが座標・列/行・フォントサイズを自動的にそのグリッドへマッピングし、`Default`スタイル15ptに対する`\fs`倍率を挿入します。
+2. フル動画／現在フレーム／任意範囲から書き出し対象を選びます。カスタム範囲では開始フレーム（0始まり）と出力したいASCIIフレーム数を入力すると、内部で秒数に変換してASSへ反映します。`pos_x/pos_y`はPlayRes座標で指定してください。PlayResはデフォルトでYouTube基準の384×288になっており、GUIが座標・列/行・フォントサイズを自動的にそのグリッドへマッピングし、`Default`スタイル15ptに対する`\fs`倍率を挿入します。
 3. 出力先`.ass`を指定して保存。
 4. 推奨フロー: Aegisubで仕上がりを確認したら、そのまま [YTSubConverter](https://github.com/arcusmaximus/YTSubConverter) → YouTubeへ投入してください。手動でサイズを合わせる必要はありません。
 
