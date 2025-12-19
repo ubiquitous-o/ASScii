@@ -26,6 +26,10 @@ from ascii_core import (
 from ass_exporter import export_ass
 
 
+YT_PLAY_RES_X = 384
+YT_PLAY_RES_Y = 288
+
+
 # ---------- UI App ----------
 
 class App:
@@ -625,7 +629,22 @@ class App:
         render_size = ascii_img.size
         grid_render_w = max(render_size[0] - pad * 2, 1)
         grid_render_h = max(render_size[1] - pad * 2, 1)
-        ascii_img.thumbnail((max_w, max_h), Image.BICUBIC)
+
+        target_w = max(1, max_w)
+        target_h = max(1, max_h)
+        src_w = max(1, render_size[0])
+        src_h = max(1, render_size[1])
+        scale_w = target_w / src_w
+        scale_h = target_h / src_h
+        scale = min(scale_w, scale_h)
+        if not math.isfinite(scale) or scale <= 0:
+            scale = 1.0
+        display_w = max(1, int(round(src_w * scale)))
+        display_h = max(1, int(round(src_h * scale)))
+
+        if display_w != src_w or display_h != src_h:
+            resample = Image.NEAREST if scale >= 1.0 else Image.BICUBIC
+            ascii_img = ascii_img.resize((display_w, display_h), resample=resample)
         display_size = ascii_img.size
 
         self._ascii_pad = pad
@@ -854,7 +873,7 @@ class App:
         dur_var = tk.DoubleVar(value=5.0)
         x_var = tk.IntVar(value=0)
         y_var = tk.IntVar(value=0)
-        fontsize_var = tk.IntVar(value=self.fontsize)
+        fontsize_var = tk.StringVar(value="auto")
         playx_var = tk.IntVar(value=int(self.video_w) if self.video_w else 1920)
         playy_var = tk.IntVar(value=int(self.video_h) if self.video_h else 1080)
         fontname_var = tk.StringVar(value=getattr(self, "_font_display_name", "Lucida Console"))
@@ -878,7 +897,7 @@ class App:
         row("Position X", x_var, 2, "PlayRes coords")
         row("Position Y", y_var, 3, "PlayRes coords")
         row("Font name", fontname_var, 4, "ASS style")
-        row("Font size", fontsize_var, 5, "")
+        row("Font size", fontsize_var, 5, "auto or number")
         row("PlayResX", playx_var, 6, "")
         row("PlayResY", playy_var, 7, "")
 
@@ -940,28 +959,65 @@ class App:
                     return mask
 
                 grid_pixel_w, grid_pixel_h = self._get_ascii_grid_pixel_size()
-                script_play_res_x = max(1, int(grid_pixel_w))
-                script_play_res_y = max(1, int(grid_pixel_h))
+                grid_pixel_w = max(1, grid_pixel_w)
+                grid_pixel_h = max(1, grid_pixel_h)
                 user_play_res_x = max(1, int(playx_var.get()))
                 user_play_res_y = max(1, int(playy_var.get()))
 
-                def to_script_coord(value: float, user_res: int, script_res: int) -> int:
+                script_play_res_x = YT_PLAY_RES_X
+                script_play_res_y = YT_PLAY_RES_Y
+
+                fontsize_value_raw = str(fontsize_var.get()).strip()
+                fontsize_input = fontsize_value_raw.lower()
+                auto_fontsize = fontsize_input == "" or fontsize_input == "auto"
+
+                base_fontsize = max(1.0, float(self.fontsize))
+
+                font_scale_ratio: float
+                if auto_fontsize:
+                    scale_ratio_x = user_play_res_x / grid_pixel_w
+                    scale_ratio_y = user_play_res_y / grid_pixel_h
+                    font_scale_ratio = min(scale_ratio_x, scale_ratio_y)
+                    if not math.isfinite(font_scale_ratio) or font_scale_ratio <= 0:
+                        font_scale_ratio = 1.0
+                    export_fontsize = max(1, int(round(base_fontsize * font_scale_ratio)))
+                else:
                     try:
-                        numeric = float(value)
+                        manual_font = float(fontsize_value_raw)
                     except Exception:
-                        numeric = 0.0
-                    if user_res <= 0 or script_res <= 0:
-                        return int(round(numeric))
-                    return int(round(numeric * script_res / user_res))
+                        raise ValueError("Font size must be numeric or 'auto'.")
+                    if manual_font <= 0:
+                        raise ValueError("Font size must be positive.")
+                    export_fontsize = max(1, int(round(manual_font)))
+                    font_scale_ratio = export_fontsize / base_fontsize
+                    if not math.isfinite(font_scale_ratio) or font_scale_ratio <= 0:
+                        font_scale_ratio = 1.0
 
-                pos_x_script = to_script_coord(x_var.get(), user_play_res_x, script_play_res_x)
-                pos_y_script = to_script_coord(y_var.get(), user_play_res_y, script_play_res_y)
+                actual_w = grid_pixel_w * font_scale_ratio
+                actual_h = grid_pixel_h * font_scale_ratio
 
-                def to_center_coord(top_left: int, size: int) -> int:
-                    return int(round(top_left + size / 2.0))
+                try:
+                    pos_x_top_left = float(x_var.get())
+                except Exception:
+                    pos_x_top_left = 0.0
+                try:
+                    pos_y_top_left = float(y_var.get())
+                except Exception:
+                    pos_y_top_left = 0.0
 
-                pos_x_center = to_center_coord(pos_x_script, script_play_res_x)
-                pos_y_center = to_center_coord(pos_y_script, script_play_res_y)
+                pos_x_center = pos_x_top_left + actual_w / 2.0
+                pos_y_center = pos_y_top_left + actual_h / 2.0
+
+                scale_x_script = script_play_res_x / user_play_res_x
+                scale_y_script = script_play_res_y / user_play_res_y
+                if not math.isfinite(scale_x_script) or scale_x_script <= 0:
+                    scale_x_script = 1.0
+                if not math.isfinite(scale_y_script) or scale_y_script <= 0:
+                    scale_y_script = 1.0
+
+                pos_x_script = pos_x_center * scale_x_script
+                pos_y_script = pos_y_center * scale_y_script
+                script_fontsize = max(1, int(round(export_fontsize * scale_y_script)))
 
                 export_ass(
                     video_path=self.video_path,
@@ -969,10 +1025,10 @@ class App:
                     params=self.params,
                     start_sec=start_sec,
                     dur_sec=dur_sec,
-                    pos_x=pos_x_center,
-                    pos_y=pos_y_center,
+                    pos_x=pos_x_script,
+                    pos_y=pos_y_script,
                     fontname=str(fontname_var.get()),
-                    fontsize=int(fontsize_var.get()),
+                    fontsize=script_fontsize,
                     play_res_x=script_play_res_x,
                     play_res_y=script_play_res_y,
                     mask_lookup=mask_lookup,

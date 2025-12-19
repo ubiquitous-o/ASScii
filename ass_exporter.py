@@ -24,7 +24,7 @@ PlayResY: {play_res_y}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{fontname},{fontsize},&H00F5F5F5,&H000000FF,&H00101010,&H80101010,0,0,0,0,100,100,0,0,1,2,0,5,20,20,20,1
+Style: Default,{fontname},15,&H00F5F5F5,&H000000FF,&H00101010,&H80101010,0,0,0,0,100,100,0,0,1,2,0,5,20,20,20,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -79,8 +79,8 @@ def export_ass(
     params: AsciiParams,
     start_sec: float,
     dur_sec: float | None,
-    pos_x: int,
-    pos_y: int,
+    pos_x: float,
+    pos_y: float,
     fontname: str,
     fontsize: int,
     play_res_x: int,
@@ -101,7 +101,6 @@ def export_ass(
         play_res_x=play_res_x,
         play_res_y=play_res_y,
         fontname=fontname,
-        fontsize=fontsize,
     )
 
     with open(out_path, "w", encoding="utf-8") as f:
@@ -134,9 +133,10 @@ def export_ass(
                     lines = apply_mask_to_ascii_lines(lines, mask)
             txt = lines_to_ass_text(lines)
 
+            fs_value = max(1, int(round(fontsize)))
             ass_line = (
                 f"Dialogue: 0,{sec_to_ass_time(t0)},{sec_to_ass_time(t1)},"
-                f"Default,,0,0,0,,{{\\an5\\pos({pos_x},{pos_y})}}{txt}\n"
+                f"Default,,0,0,0,,{{\\an5\\fs{fs_value}\\pos({pos_x:.3f},{pos_y:.3f})}}{txt}\n"
             )
             f.write(ass_line)
             i += 1
