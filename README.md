@@ -5,7 +5,7 @@
 ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art and exports every rendered frame as Aegisub-compatible ASS subtitles. It is optimized for creators who want to author stylized overlays or subtitles that can later be synced and published on video platforms.
 
 ![screenshot](imgs/screenshot.png)
-[Sample Video is here.](https://youtu.be/F6egk1YDVNs?si=4CGu6RdAGxIfq4wy)
+[Sample Video is here.](https://youtu.be/wm49WEjqRfA?si=yFl0dJerjjRhwGEi)
 
 [Side by Side Ver.](https://youtube.com/shorts/jswRuja-WOU)
 
