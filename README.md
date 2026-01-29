@@ -12,6 +12,7 @@ ASScii is a Tkinter-based desktop tool that converts videos into live ASCII art 
 ## Highlights
 - Real-time dual preview so you can see the original frame and the ASCII rendition side by side.
 - Rich tone and layout controls: grid size, FPS, gamma, contrast, brightness, inversion, a binary-threshold mode, built-in charset presets *or* a free-form custom charset (multi-byte/Japanese characters supported), plus optional aspect locking.
+- Color mode keeps per-cell RGB while honoring tone/masks. When enabled it drops the leading space in the charset so dark areas are drawn with characters instead of disappearing.
 - Per-frame erase/restore masks to hide areas directly on the ASCII canvas *and* carry those edits into the exported ASS.
 - Frame-accurate ASS exporter with selectable ranges (full video / current frame / custom window) that writes one Dialogue event per rendered frame. It now normalizes coordinates/size to YouTube’s 384×288 PlayRes and auto-derives the proper `\fs` multiplier, so Aegisub and YTSubConverter show identical layouts out of the box.
 - Smart monospace font detection (prefers `lucida-console.ttf`, falls back to Courier New, Menlo, DejaVu Sans Mono, etc.) so both the preview and exported subtitles share the same metrics.
@@ -53,6 +54,7 @@ python asscii_app.py input.mp4  # skip the dialog
 - Use the `Open`, `Pause/Play`, `Rewind`, `Export ASS`, and `Export Text` buttons for the core actions.
 - The frame slider and numeric entry jump to any frame (looping when the end is reached).
 - **Lock aspect** keeps the row count tied to the video aspect ratio based on the current font metrics (enabled by default).
+- **Color** renders ASCII with per-cell RGB and exports those colors into ASS. Color inversion is not applied; inversion only affects character selection. Recommended when you want dark regions to stay drawn instead of turning into blanks.
 - **Eraser** (left drag) / **Restore** (right drag) toggle cells on the ASCII canvas; `Clear Eraser (frame)` resets the mask for the current frame.
 - Playback starts paused, so dial in the grid/tone controls before rendering new frames.
 - When **Binarize** is enabled you can pick between *gradient* (default two-tone mapping) and *pattern* mode. Pattern mode repeats the entire Custom charset string directly across the binary mask—for example entering `hello` will render `hellohello…` wherever the mask is white.
@@ -75,7 +77,7 @@ Press `Export Text` to dump the currently displayed ASCII frame (after masks) to
 If you want to batch-process footage, import `AsciiParams`, `frame_to_ascii`, or `export_ass` from `ascii_core.py` / `ass_exporter.py` and call them from your own scripts. The helper functions are pure Python and stay independent from the GUI.
 
 ## Tips
-- Higher column/row counts drastically increase render time and subtitle size. Values around `cols=100`, `rows≈45`, `fps=10–12` offer a good balance for web playback.
+- Higher column/row counts drastically increase render time and subtitle size. If you use color mode the file size grows further.
 - Try the `Dense (16)` charset for smooth gradients or `Blocks (5)` for bold posterized art.
 - Adjust gamma and contrast before raising brightness; this keeps highlights from clipping.
 - Use inversion when targeting light-on-dark video overlays.
