@@ -3,6 +3,7 @@ big_buck_bunny_1080p_h264.mov
 *.mp4
 *.ass
 *.ytt
+.serena/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

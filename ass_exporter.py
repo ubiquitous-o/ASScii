@@ -9,7 +9,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from ascii_core import AsciiParams, apply_mask_to_ascii_lines, frame_to_ascii
+from ascii_core import (
+    AsciiParams,
+    apply_mask_to_ascii_lines,
+    apply_mask_to_colors,
+    frame_to_ascii_result,
+)
 
 
 ASS_HEADER = """[Script Info]
@@ -69,8 +74,41 @@ def escape_ass_text(s: str) -> str:
     return "".join(result)
 
 
-def lines_to_ass_text(lines: list[str]) -> str:
-    return "\\N".join(escape_ass_text(line) for line in lines)
+def _ass_color_tag(rgb: np.ndarray | tuple[int, int, int]) -> str:
+    r, g, b = int(rgb[0]), int(rgb[1]), int(rgb[2])
+    return f"{{\\c&H{b:02X}{g:02X}{r:02X}&}}"
+
+
+def lines_to_ass_text(lines: list[str], colors: np.ndarray | None = None) -> str:
+    if colors is None:
+        return "\\N".join(escape_ass_text(line) for line in lines)
+
+    parts: list[str] = []
+    for r, line in enumerate(lines):
+        row_colors = colors[r] if r < colors.shape[0] else None
+        if row_colors is None:
+            parts.append(escape_ass_text(line))
+        else:
+            if len(line) == 0:
+                parts.append("")
+                continue
+            run_color = row_colors[0]
+            run_start = 0
+            for c, ch in enumerate(line):
+                col_val = row_colors[c] if c < len(row_colors) else run_color
+                if c == 0:
+                    run_color = col_val
+                    continue
+                if not np.array_equal(col_val, run_color):
+                    segment = line[run_start:c]
+                    parts.append(_ass_color_tag(run_color) + escape_ass_text(segment))
+                    run_color = col_val
+                    run_start = c
+            segment = line[run_start:]
+            parts.append(_ass_color_tag(run_color) + escape_ass_text(segment))
+        if r != len(lines) - 1:
+            parts.append("\\N")
+    return "".join(parts)
 
 
 def export_ass(
@@ -125,13 +163,16 @@ def export_ass(
             if pos is not None and not math.isnan(float(pos)):
                 frame_idx = max(0, int(pos) - 1)
 
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            lines = frame_to_ascii(gray, params)
+            ascii_result = frame_to_ascii_result(frame, params)
+            lines = ascii_result.lines
+            colors = ascii_result.colors
+            mask = None
             if mask_lookup is not None and frame_idx is not None:
                 mask = mask_lookup(frame_idx)
                 if mask is not None and mask.shape == (params.rows, params.cols):
                     lines = apply_mask_to_ascii_lines(lines, mask)
-            txt = lines_to_ass_text(lines)
+                    colors = apply_mask_to_colors(colors, mask)
+            txt = lines_to_ass_text(lines, colors)
 
             fs_value = max(1, int(round(fontsize)))
             ass_line = (

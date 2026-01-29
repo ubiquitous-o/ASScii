@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, NamedTuple
 
 import numpy as np
 import cv2
@@ -25,6 +25,7 @@ class AsciiParams:
     charset_name: str = "Blocks (5)"
     custom_charset: str = ""
     invert: bool = True
+    color: bool = False
     binarize: bool = False
     binarize_threshold: int = 128
     binarize_custom_mode: str = "gradient"
@@ -43,7 +44,7 @@ def apply_tone(gray: np.ndarray, gamma: float, contrast: float, brightness: floa
     return (x * 255.0).astype(np.uint8)
 
 
-def frame_to_ascii(gray: np.ndarray, params: AsciiParams) -> list[str]:
+def frame_to_ascii(gray: np.ndarray, params: AsciiParams, drop_leading_char: bool = False) -> list[str]:
     """グレースケールフレームをASCII行配列に変換."""
     small = cv2.resize(gray, (params.cols, params.rows), interpolation=cv2.INTER_AREA)
     small = apply_tone(small, params.gamma, params.contrast, params.brightness)
@@ -67,6 +68,8 @@ def frame_to_ascii(gray: np.ndarray, params: AsciiParams) -> list[str]:
         charset = CHARSETS.get(params.charset_name, CHARSETS["Blocks (5)"])
     if not charset:
         charset = CHARSETS["Blocks (5)"]
+    if drop_leading_char and charset and charset[0] == " " and len(charset) > 1:
+        charset = charset[1:]
 
     use_pattern = (
         params.binarize and
@@ -100,14 +103,42 @@ def frame_to_ascii(gray: np.ndarray, params: AsciiParams) -> list[str]:
     return ["".join(charset[i] for i in row) for row in idx]
 
 
+class AsciiResult(NamedTuple):
+    lines: list[str]
+    colors: np.ndarray | None  # shape (rows, cols, 3) RGB uint8
+
+
+def frame_to_ascii_result(frame_bgr: np.ndarray, params: AsciiParams) -> AsciiResult:
+    gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+    lines = frame_to_ascii(gray, params, drop_leading_char=params.color)
+    colors: np.ndarray | None = None
+
+    if params.color:
+        small_bgr = cv2.resize(frame_bgr, (params.cols, params.rows), interpolation=cv2.INTER_AREA)
+        toned = np.empty_like(small_bgr)
+        for ch in range(3):  # B, G, R order
+            toned[..., ch] = apply_tone(small_bgr[..., ch], params.gamma, params.contrast, params.brightness)
+        if params.binarize:
+            thresh = int(np.clip(params.binarize_threshold, 0, 255))
+            mask = (cv2.cvtColor(small_bgr, cv2.COLOR_BGR2GRAY) >= thresh)
+            if params.invert:
+                mask = ~mask
+            toned = np.where(mask[..., None], 255, 0).astype(np.uint8)
+        # convert to RGB for Pillow / ASS
+        colors = cv2.cvtColor(toned, cv2.COLOR_BGR2RGB)
+
+    return AsciiResult(lines=lines, colors=colors)
+
+
 def render_ascii_image(
     lines: Iterable[str],
     font: ImageFont.FreeTypeFont,
+    colors: np.ndarray | None = None,
     pad: int = 8,
     fg=(245, 245, 245),
     bg=(10, 10, 10),
 ) -> Image.Image:
-    """ASCIIテキストをPillow画像に描画."""
+    """ASCIIテキストをPillow画像に描画（カラー対応）。"""
     lines = list(lines)
     ascent, descent = font.getmetrics()
     char_length = None
@@ -141,9 +172,45 @@ def render_ascii_image(
     img = Image.new("RGB", (max(1, w), max(1, h)), color=bg)
     draw = ImageDraw.Draw(img)
 
+    has_colors = colors is not None and hasattr(colors, "shape")
+
     y = pad
-    for line in lines:
-        draw.text((pad, y), line, font=font, fill=fg)
+    for r, line in enumerate(lines):
+        if has_colors:
+            # 1行を同色連続ランでまとめて描画し回数を削減
+            row_colors = colors[r] if r < colors.shape[0] else None
+        else:
+            row_colors = None
+
+        if row_colors is None:
+            draw.text((pad, y), line, font=font, fill=fg)
+        else:
+            run_chars: list[str] = []
+            run_color = tuple(int(x) for x in row_colors[0]) if len(row_colors) else fg
+            run_start = 0
+
+            def flush_run(end_idx: int):
+                nonlocal run_start, run_chars, run_color
+                if not run_chars:
+                    return
+                x = pad + run_start * cell_w
+                draw.text((x, y), "".join(run_chars), font=font, fill=run_color)
+                run_chars = []
+
+            for c, ch in enumerate(line):
+                col_val = tuple(int(x) for x in row_colors[c]) if c < len(row_colors) else fg
+                if not run_chars:
+                    run_chars.append(ch)
+                    run_color = col_val
+                    run_start = c
+                elif col_val == run_color:
+                    run_chars.append(ch)
+                else:
+                    flush_run(c)
+                    run_chars = [ch]
+                    run_color = col_val
+                    run_start = c
+            flush_run(len(line))
         y += cell_h
     return img
 
@@ -165,3 +232,14 @@ def apply_mask_to_ascii_lines(lines: list[str], mask: np.ndarray | None) -> list
                 line_chars[c] = " "
         masked.append("".join(line_chars))
     return masked + lines[rows:]
+
+
+def apply_mask_to_colors(colors: np.ndarray | None, mask: np.ndarray | None, bg=(10, 10, 10)) -> np.ndarray | None:
+    """マスク位置を背景色に置き換えたカラー配列を返す."""
+    if colors is None or mask is None:
+        return colors
+    rows = min(colors.shape[0], mask.shape[0])
+    cols = min(colors.shape[1], mask.shape[1])
+    result = colors.copy()
+    result[:rows, :cols][mask[:rows, :cols]] = np.array(bg, dtype=result.dtype)
+    return result

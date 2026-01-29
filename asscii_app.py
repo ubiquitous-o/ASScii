@@ -19,8 +19,10 @@ from PIL import Image, ImageTk, ImageFont
 from ascii_core import (
     CHARSETS,
     AsciiParams,
+    AsciiResult,
     apply_mask_to_ascii_lines,
-    frame_to_ascii,
+    apply_mask_to_colors,
+    frame_to_ascii_result,
     render_ascii_image,
 )
 from ass_exporter import export_ass
@@ -59,7 +61,7 @@ class App:
         self._ascii_pad = 10
         self._rows_updating = False
         self._suppress_frame_var = False
-        self.ascii_cache: dict[int, list[str]] = {}
+        self.ascii_cache: dict[int, AsciiResult] = {}
         self._cache_lock = threading.Lock()
         self._prefetch_pending: set[int] = set()
         self._prefetch_radius = 8
@@ -219,6 +221,7 @@ class App:
         self.contrast_var = tk.DoubleVar(value=self.params.contrast)
         self.brightness_var = tk.DoubleVar(value=self.params.brightness)
         self.invert_var = tk.BooleanVar(value=self.params.invert)
+        self.color_var = tk.BooleanVar(value=self.params.color)
         self.binarize_var = tk.BooleanVar(value=self.params.binarize)
         self.binarize_threshold_var = tk.IntVar(value=self.params.binarize_threshold)
         self.binarize_mode_var = tk.StringVar(value=self.params.binarize_custom_mode)
@@ -297,6 +300,7 @@ class App:
         tone_row = ctk.CTkFrame(controls)
         tone_row.pack(fill="x", padx=8, pady=(6, 0))
         ctk.CTkSwitch(tone_row, text="Invert", variable=self.invert_var).pack(side="left")
+        ctk.CTkSwitch(tone_row, text="Color", variable=self.color_var).pack(side="left", padx=(10, 0))
         ctk.CTkSwitch(tone_row, text="Binarize", variable=self.binarize_var).pack(side="left", padx=(12, 0))
         ctk.CTkLabel(tone_row, text="Threshold").pack(side="left", padx=(12, 6))
         self._binarize_slider = ctk.CTkSlider(tone_row, from_=0, to=255)
@@ -349,6 +353,7 @@ class App:
             self.contrast_var,
             self.brightness_var,
             self.invert_var,
+            self.color_var,
             self.binarize_var,
             self.binarize_threshold_var,
             self.binarize_mode_var,
@@ -417,6 +422,7 @@ class App:
         self.params.contrast = float(self.contrast_var.get())
         self.params.brightness = float(self.brightness_var.get())
         self.params.invert = bool(self.invert_var.get())
+        self.params.color = bool(self.color_var.get())
         self.params.binarize = bool(self.binarize_var.get())
         self.params.binarize_threshold = int(self.binarize_threshold_var.get())
         self.params.binarize_custom_mode = self.binarize_mode_var.get()
@@ -429,6 +435,7 @@ class App:
             self.params.contrast != prev.contrast or
             self.params.brightness != prev.brightness or
             self.params.invert != prev.invert or
+            self.params.color != prev.color or
             self.params.binarize != prev.binarize or
             self.params.binarize_threshold != prev.binarize_threshold or
             self.params.binarize_custom_mode != prev.binarize_custom_mode or
@@ -566,31 +573,30 @@ class App:
             self.ascii_cache.clear()
             self._prefetch_pending.clear()
 
-    def _store_ascii_lines(self, frame_idx: int | None, lines: list[str]):
+    def _store_ascii_result(self, frame_idx: int | None, result: AsciiResult):
         if frame_idx is None:
             return
         with self._cache_lock:
-            self.ascii_cache[frame_idx] = lines
+            self.ascii_cache[frame_idx] = result
             self._prefetch_pending.discard(frame_idx)
 
-    def _get_cached_ascii_lines(self, frame_idx: int | None) -> list[str] | None:
+    def _get_cached_ascii_result(self, frame_idx: int | None) -> AsciiResult | None:
         if frame_idx is None:
             return None
         with self._cache_lock:
             return self.ascii_cache.get(frame_idx)
 
-    def _ensure_ascii_lines(self, frame_idx: int | None, frame_bgr: np.ndarray | None,
-                            params: AsciiParams | None = None) -> list[str] | None:
-        cached = self._get_cached_ascii_lines(frame_idx)
+    def _ensure_ascii_result(self, frame_idx: int | None, frame_bgr: np.ndarray | None,
+                             params: AsciiParams | None = None) -> AsciiResult | None:
+        cached = self._get_cached_ascii_result(frame_idx)
         if cached is not None:
             return cached
         if frame_bgr is None:
             return None
         use_params = params or self.params
-        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-        lines = frame_to_ascii(gray, use_params)
-        self._store_ascii_lines(frame_idx, lines)
-        return lines
+        result = frame_to_ascii_result(frame_bgr, use_params)
+        self._store_ascii_result(frame_idx, result)
+        return result
 
     def _reset_all_masks(self):
         self.erase_masks.clear()
@@ -698,18 +704,18 @@ class App:
                     self._prefetch_pending.discard(idx)
                 continue
             params = self._clone_params()
-            self._ensure_ascii_lines(idx, frame, params=params)
+            self._ensure_ascii_result(idx, frame, params=params)
         cap.release()
 
     def _render_ascii_frame(self, frame_bgr: np.ndarray | None, frame_idx: int | None,
                             max_w: int, max_h: int):
-        base_lines = self._ensure_ascii_lines(frame_idx, frame_bgr)
-        if base_lines is None:
+        base_result = self._ensure_ascii_result(frame_idx, frame_bgr)
+        if base_result is None:
             return
-        lines = self._apply_erase_mask_to_lines(base_lines, frame_idx)
+        lines, colors = self._apply_erase_mask(base_result, frame_idx)
 
         pad = 10
-        ascii_img = render_ascii_image(lines, font=self._font, pad=pad)
+        ascii_img = render_ascii_image(lines, font=self._font, pad=pad, colors=colors)
         render_size = ascii_img.size
         grid_render_w = max(render_size[0] - pad * 2, 1)
         grid_render_h = max(render_size[1] - pad * 2, 1)
@@ -754,6 +760,14 @@ class App:
     def _apply_erase_mask_to_lines(self, lines: list[str], frame_idx: int | None) -> list[str]:
         mask = self._get_mask_for_frame(frame_idx, create=False)
         return apply_mask_to_ascii_lines(lines, mask)
+
+    def _apply_erase_mask(self, result: AsciiResult, frame_idx: int | None) -> tuple[list[str], np.ndarray | None]:
+        lines = self._apply_erase_mask_to_lines(result.lines, frame_idx)
+        colors = result.colors
+        if colors is not None:
+            mask = self._get_mask_for_frame(frame_idx, create=False)
+            colors = apply_mask_to_colors(colors, mask)
+        return lines, colors
 
     def _event_to_ascii_cell(self, event) -> tuple[int, int] | None:
         disp_w, disp_h = self._ascii_display_size
@@ -1133,11 +1147,11 @@ class App:
             messagebox.showinfo("Export", "Render a frame first.")
             return
         self._sync_params()
-        lines = self._ensure_ascii_lines(self.frame_index, self._last_frame_bgr)
-        if lines is None:
+        result = self._ensure_ascii_result(self.frame_index, self._last_frame_bgr)
+        if result is None:
             messagebox.showerror("Export", "Could not convert current frame to ASCII.")
             return
-        lines = self._apply_erase_mask_to_lines(lines, self.frame_index)
+        lines, _ = self._apply_erase_mask(result, self.frame_index)
         out = filedialog.asksaveasfilename(
             title="Save ASCII text",
             defaultextension=".txt",
