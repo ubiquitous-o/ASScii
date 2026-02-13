@@ -72,6 +72,7 @@ Press `Export Text` to dump the currently displayed ASCII frame (after masks) to
 - The exporter always writes `PlayResX=384`, `PlayResY=288`, matching the reference files bundled with YTSubConverter. Your video-space coordinates are remapped to that grid, including the 2% safe margins YouTube enforces.
 - `Default` style stays at 15pt (the YouTube baseline) and every ASCII Dialogue line adds `\fs…` so the actual glyph size is `fontsize / 15`. This mirrors how YTSubConverter interprets font overrides, ensuring YT and Aegisub show identical sizes.
 - Stick to fonts that YouTube supports (Roboto, Courier New, etc.) for consistent spacing. The GUI’s font picker highlights the current face so you can keep previews/export in sync.
+- As of now, YouTube only accepts uploads when the converted `.ytt` file is 10MB or smaller.
 
 ### Programmatic use
 If you want to batch-process footage, import `AsciiParams`, `frame_to_ascii`, or `export_ass` from `ascii_core.py` / `ass_exporter.py` and call them from your own scripts. The helper functions are pure Python and stay independent from the GUI.

@@ -72,6 +72,7 @@ python asscii_app.py input.mp4  # パスを直接指定
 - エクスポーターは常に`PlayResX=384`, `PlayResY=288`を出力し、YouTubeが内部で確保しているキャンバスと同じスケールに合わせます。動画座標はこのグリッドへ自動変換され、YouTube側の2%セーフマージンも考慮されます。
 - `Default`スタイルは15pt固定で、各Dialogueには`\fs`タグが挿入されます（`\fs`値 ÷ 15 が倍率）。そのためAegisubとYTSubConverterの描画倍率が一致します。
 - YouTubeがサポートするフォント（Roboto / Courier Newなど）を選ぶと、プレビューと本番の字幅が一致しやすくなります。
+- 現時点では、`.ytt`形式に変換した後のファイルサイズが10MB以下でないとYouTubeにアップロードできません。
 
 ### スクリプトからの利用
 バッチ処理を行いたい場合は`ascii_core.py`/`ass_exporter.py`から`AsciiParams`や`frame_to_ascii`、`export_ass`をインポートして使用できます。GUIに依存しない純Python関数です。
