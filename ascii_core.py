@@ -110,7 +110,7 @@ class AsciiResult(NamedTuple):
 
 def frame_to_ascii_result(frame_bgr: np.ndarray, params: AsciiParams) -> AsciiResult:
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-    lines = frame_to_ascii(gray, params, drop_leading_char=params.color)
+    lines = frame_to_ascii(gray, params)
     colors: np.ndarray | None = None
 
     if params.color:
