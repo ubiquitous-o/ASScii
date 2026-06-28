@@ -13,8 +13,63 @@ from ascii_core import (
     AsciiParams,
     apply_mask_to_ascii_lines,
     apply_mask_to_colors,
+    count_color_runs,
     frame_to_ascii_result,
 )
+
+
+# YouTube字幕が受け付ける要素数(spans)の実測上限の目安。
+# 実績: 267,830 spans=アップ可 / 375,551 spans=不可。安全側に約27万を境界とする。
+YT_SPAN_LIMIT = 270_000
+
+# 列数の実用上限。YouTube字幕のフォントには最小サイズ(YTSubConverterの sz=0 床)があり、
+# これを超えると文字が縮みきれず横にあふれてレイアウトが崩れる。実測で約82列が境界。
+YT_MAX_COLS = 82
+
+
+def estimate_total_spans(
+    video_path: Path,
+    params: AsciiParams,
+    start_sec: float,
+    dur_sec: float | None,
+    samples: int = 4,
+) -> int:
+    """エクスポート結果の総 ytt spans 数をサンプリングで概算する。
+
+    数フレームの色ラン数を測り、フレーム数で外挿。各行のラッパ<s>分(約2/行)を加味。
+    YouTube字幕の要素数上限に引っかかるかの事前警告に使う。
+    """
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return 0
+    try:
+        fps = max(params.fps, 0.1)
+        dt = 1.0 / fps
+        if dur_sec is None:
+            vid_fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+            vid_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0
+            vid_len = (vid_frames / vid_fps) if vid_fps > 0 else 0.0
+            n_frames = max(1, int(math.ceil(max(vid_len - start_sec, 0.0) / dt)))
+        else:
+            n_frames = max(1, int(math.ceil(max(dur_sec, 0.0) / dt)))
+
+        runs: list[int] = []
+        for i in range(max(1, samples)):
+            frac = i / max(1, samples - 1) if samples > 1 else 0.0
+            t = start_sec + frac * (n_frames - 1) * dt
+            cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            res = frame_to_ascii_result(frame, params)
+            runs.append(count_color_runs(res.lines, res.colors))
+        if not runs:
+            return 0
+        avg = sum(runs) / len(runs)
+        overhead = 2 * params.rows  # 行ごとのラッパ<s>分
+        return int((avg + overhead) * n_frames)
+    finally:
+        cap.release()
 
 
 ASS_HEADER = """[Script Info]

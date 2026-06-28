@@ -25,7 +25,7 @@ from ascii_core import (
     frame_to_ascii_result,
     render_ascii_image,
 )
-from ass_exporter import export_ass
+from ass_exporter import YT_MAX_COLS, YT_SPAN_LIMIT, estimate_total_spans, export_ass
 
 
 YT_PLAY_RES_X = 384
@@ -220,8 +220,10 @@ class App:
         self.gamma_var = tk.DoubleVar(value=self.params.gamma)
         self.contrast_var = tk.DoubleVar(value=self.params.contrast)
         self.brightness_var = tk.DoubleVar(value=self.params.brightness)
+        self.color_levels_var = tk.IntVar(value=self.params.color_levels)
         self.invert_var = tk.BooleanVar(value=self.params.invert)
         self.color_var = tk.BooleanVar(value=self.params.color)
+        self.skip_black_var = tk.BooleanVar(value=self.params.skip_black)
         self.binarize_var = tk.BooleanVar(value=self.params.binarize)
         self.binarize_threshold_var = tk.IntVar(value=self.params.binarize_threshold)
         self.binarize_mode_var = tk.StringVar(value=self.params.binarize_custom_mode)
@@ -282,6 +284,9 @@ class App:
         add_slider(1, 1, "Contrast", self.contrast_var, 0.3, 3.0)
         add_slider(1, 2, "Brightness", self.brightness_var, -100, 100)
 
+        # Color lv: カラー時のパレット階調(各ch)。小さいほど色数減→ytt激減。Color時のみ意味あり
+        add_slider(2, 0, "Color lv", self.color_levels_var, 2, 32, step=1.0)
+
         charset_row = ctk.CTkFrame(controls)
         charset_row.pack(fill="x", padx=8, pady=(8, 0))
         ctk.CTkLabel(charset_row, text="Charset").pack(side="left", padx=(0, 6))
@@ -301,6 +306,7 @@ class App:
         tone_row.pack(fill="x", padx=8, pady=(6, 0))
         ctk.CTkSwitch(tone_row, text="Invert", variable=self.invert_var).pack(side="left")
         ctk.CTkSwitch(tone_row, text="Color", variable=self.color_var).pack(side="left", padx=(10, 0))
+        ctk.CTkSwitch(tone_row, text="Skip black", variable=self.skip_black_var).pack(side="left", padx=(10, 0))
         ctk.CTkSwitch(tone_row, text="Binarize", variable=self.binarize_var).pack(side="left", padx=(12, 0))
         ctk.CTkLabel(tone_row, text="Threshold").pack(side="left", padx=(12, 6))
         self._binarize_slider = ctk.CTkSlider(tone_row, from_=0, to=255)
@@ -352,8 +358,10 @@ class App:
             self.gamma_var,
             self.contrast_var,
             self.brightness_var,
+            self.color_levels_var,
             self.invert_var,
             self.color_var,
+            self.skip_black_var,
             self.binarize_var,
             self.binarize_threshold_var,
             self.binarize_mode_var,
@@ -421,8 +429,10 @@ class App:
         self.params.gamma = float(self.gamma_var.get())
         self.params.contrast = float(self.contrast_var.get())
         self.params.brightness = float(self.brightness_var.get())
+        self.params.color_levels = max(2, int(self.color_levels_var.get()))
         self.params.invert = bool(self.invert_var.get())
         self.params.color = bool(self.color_var.get())
+        self.params.skip_black = bool(self.skip_black_var.get())
         self.params.binarize = bool(self.binarize_var.get())
         self.params.binarize_threshold = int(self.binarize_threshold_var.get())
         self.params.binarize_custom_mode = self.binarize_mode_var.get()
@@ -434,8 +444,10 @@ class App:
             self.params.gamma != prev.gamma or
             self.params.contrast != prev.contrast or
             self.params.brightness != prev.brightness or
+            self.params.color_levels != prev.color_levels or
             self.params.invert != prev.invert or
             self.params.color != prev.color or
+            self.params.skip_black != prev.skip_black or
             self.params.binarize != prev.binarize or
             self.params.binarize_threshold != prev.binarize_threshold or
             self.params.binarize_custom_mode != prev.binarize_custom_mode or
@@ -1048,6 +1060,40 @@ class App:
                     if frame_count <= 0:
                         raise ValueError("Frame count must be positive.")
                     dur_sec = frame_count / max(self.params.fps, 1e-6)
+
+                # --- 列数オーバー → YouTubeでフォントが最小に張り付きレイアウト崩れ ---
+                if self.params.cols > YT_MAX_COLS:
+                    proceed = messagebox.askyesno(
+                        "レイアウト崩れの可能性",
+                        f"Cols={self.params.cols} は上限の目安(約{YT_MAX_COLS})を超えています。\n\n"
+                        f"YouTube字幕のフォントには最小サイズがあり、これ以上小さくなりません。\n"
+                        f"列が多すぎると文字が縮みきれず、横にあふれてレイアウトが崩れます。\n\n"
+                        f"対策: Cols を {YT_MAX_COLS} 以下に。\n\n"
+                        f"それでもエクスポートを続けますか？",
+                    )
+                    if not proceed:
+                        return
+
+                # --- YouTube字幕の要素数(spans)上限チェック ---
+                if self.params.color:
+                    try:
+                        est_spans = estimate_total_spans(
+                            self.video_path, self.params, start_sec, dur_sec
+                        )
+                    except Exception:
+                        est_spans = 0
+                    if est_spans > YT_SPAN_LIMIT:
+                        proceed = messagebox.askyesno(
+                            "要素数が多すぎる可能性",
+                            f"推定要素数(spans) ≈ {est_spans:,}\n\n"
+                            f"YouTube字幕の上限(約{YT_SPAN_LIMIT:,})を超える見込みです。\n"
+                            f"このままだとアップロードに失敗する可能性が高い。\n\n"
+                            f"対策: Cols / Rows / FPS / 尺 / Color lv を下げる\n"
+                            f"（66×21・FPS12 は通った実績あり）\n\n"
+                            f"それでもエクスポートを続けますか？",
+                        )
+                        if not proceed:
+                            return
 
                 expected_shape = (self.params.rows, self.params.cols)
 

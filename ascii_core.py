@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 CHARSETS = {
+    "b&w": " █",
     "Blocks (5)": " ░▒▓█",
     "Classic (10)": " .:-=+*#%@",
     "Dense (16)": " .'`\",:;Il!i><~+_-?][}{1)(|\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
@@ -32,6 +33,9 @@ class AsciiParams:
     gamma: float = 1.0
     contrast: float = 1.0
     brightness: float = 0.0  # -100..100
+    color_levels: int = 6  # カラー量子化: 各チャンネルの階調数(2-255)。小さいほど色数減・ファイル激減。256/0で無効
+    skip_black: bool = False  # 真っ黒セル（黒帯など）にアスキーを書かない
+    black_threshold: int = 16  # この輝度以下を「真っ黒」とみなす（0-255）
 
 
 def apply_tone(gray: np.ndarray, gamma: float, contrast: float, brightness: float) -> np.ndarray:
@@ -42,6 +46,22 @@ def apply_tone(gray: np.ndarray, gamma: float, contrast: float, brightness: floa
     x = x + (brightness / 100.0) * 0.5
     x = np.clip(x, 0.0, 1.0)
     return (x * 255.0).astype(np.uint8)
+
+
+def quantize_colors(colors: np.ndarray, levels: int) -> np.ndarray:
+    """色を各チャンネル ``levels`` 段階に量子化する。
+
+    決定論的なポスタリゼーションなので、全フレームで同一の固定パレットになる。
+    結果として動画全体の distinct 色数が ``levels ** 3`` 以下に抑えられ、
+    ytt の ``<pen>`` 数（＝ファイルサイズの主因）が激減する。
+
+    ``levels`` が 2 未満 / 256 以上のときは無変換（フルカラー）。
+    """
+    if levels is None or levels < 2 or levels >= 256:
+        return colors
+    c = colors.astype(np.float32)
+    q = np.round(c / 255.0 * (levels - 1)) / (levels - 1) * 255.0
+    return np.clip(q, 0.0, 255.0).astype(np.uint8)
 
 
 def frame_to_ascii(gray: np.ndarray, params: AsciiParams, drop_leading_char: bool = False) -> list[str]:
@@ -103,6 +123,28 @@ def frame_to_ascii(gray: np.ndarray, params: AsciiParams, drop_leading_char: boo
     return ["".join(charset[i] for i in row) for row in idx]
 
 
+def count_color_runs(lines: list[str], colors: np.ndarray | None) -> int:
+    """1フレームの色ラン数を数える（≒ ytt の <s> スパン数の主成分）。
+
+    YouTube字幕は要素数(spans)に上限があるため、エクスポート前の見積もりに使う。
+    """
+    if colors is None:
+        return len([ln for ln in lines if ln])
+    total = 0
+    rows = colors.shape[0]
+    for r in range(min(rows, len(lines))):
+        n = len(lines[r])
+        if n == 0:
+            continue
+        rc = colors[r, :n]
+        if rc.shape[0] <= 1:
+            total += int(rc.shape[0])
+            continue
+        changes = int(np.any(rc[1:] != rc[:-1], axis=-1).sum())
+        total += changes + 1
+    return total
+
+
 class AsciiResult(NamedTuple):
     lines: list[str]
     colors: np.ndarray | None  # shape (rows, cols, 3) RGB uint8
@@ -126,6 +168,16 @@ def frame_to_ascii_result(frame_bgr: np.ndarray, params: AsciiParams) -> AsciiRe
             toned = np.where(mask[..., None], 255, 0).astype(np.uint8)
         # convert to RGB for Pillow / ASS
         colors = cv2.cvtColor(toned, cv2.COLOR_BGR2RGB)
+        # 固定パレットへ量子化 → ytt の pen 数を抑えてファイルを激減させる
+        colors = quantize_colors(colors, params.color_levels)
+
+    # 真っ黒セル（黒帯など）にはアスキーを書かない → 見た目スッキリ＋spans削減
+    if params.skip_black:
+        small_gray = cv2.resize(gray, (params.cols, params.rows), interpolation=cv2.INTER_AREA)
+        black_mask = small_gray <= int(params.black_threshold)
+        lines = apply_mask_to_ascii_lines(lines, black_mask)
+        if colors is not None:
+            colors = apply_mask_to_colors(colors, black_mask)
 
     return AsciiResult(lines=lines, colors=colors)
 
